@@ -5,7 +5,7 @@ plugins {
 
 android {
     namespace = "com.omniplayer.music"
-    compileSdk = 36
+    compileSdk = 34
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17

@@ -10,6 +10,23 @@
 
 ---
 
+<div align="center">
+
+### 📥 Direct APK Download
+
+[![Download Universal APK](https://img.shields.io/badge/Download_Universal_APK-12MB-success?style=for-the-badge&logo=android&logoColor=white)](https://github.com/Roshangamerz/Omni-player/raw/main/releases/omni-player-release.apk)
+[![Download ARM64 APK](https://img.shields.io/badge/Download_ARM64_APK-3.9MB-blue?style=for-the-badge&logo=android&logoColor=white)](https://github.com/Roshangamerz/Omni-player/raw/main/releases/omni-player-arm64-v8a.apk)
+[![GitHub Release](https://img.shields.io/badge/GitHub-Releases-purple?style=for-the-badge&logo=github&logoColor=white)](https://github.com/Roshangamerz/Omni-player/releases)
+
+| Package | Size | Target Architecture | Direct Link |
+| :--- | :--- | :--- | :--- |
+| **Universal APK** *(Recommended)* | `~12.5 MB` | All Android Devices (ARMv7, ARM64, x86_64) | [**⬇️ Download omni-player-release.apk**](https://github.com/Roshangamerz/Omni-player/raw/main/releases/omni-player-release.apk) |
+| **ARM64-v8a APK** *(Ultra-Light)* | `~3.9 MB` | Modern 64-bit Android Phones | [**⬇️ Download omni-player-arm64-v8a.apk**](https://github.com/Roshangamerz/Omni-player/raw/main/releases/omni-player-arm64-v8a.apk) |
+
+</div>
+
+---
+
 ## 🌟 Highlights & Features
 
 ### 🎧 Audio & Core Streaming
