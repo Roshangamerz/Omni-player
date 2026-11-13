@@ -419,9 +419,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       SegmentedButton<String>(
                         segments: const [
                           ButtonSegment(value: 'apple', label: Text('Apple')),
+                          ButtonSegment(value: 'vinyl', label: Text('Turntable')),
                           ButtonSegment(value: 'material', label: Text('Material')),
                         ],
-                        selected: {ps.playerStyle},
+                        selected: {
+                          ['apple', 'vinyl', 'material'].contains(ps.playerStyle) ? ps.playerStyle : 'apple'
+                        },
                         onSelectionChanged: (s) => ps.setPlayerStyle(s.first),
                       ),
                     ],
@@ -432,6 +435,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     value: ps.isDarkMode,
                     activeThumbColor: theme.primary,
                     onChanged: ps.toggleDarkMode,
+                  ),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text('Liquid Glassmorphism Blur', style: TextStyle(color: theme.textPrimary)),
+                    subtitle: Text('Frosted glass backdrop surfaces',
+                        style: TextStyle(color: theme.textSecondary, fontSize: 12)),
+                    value: ps.isLiquidGlassEnabled,
+                    activeThumbColor: theme.primary,
+                    onChanged: ps.toggleLiquidGlass,
                   ),
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
@@ -464,6 +476,35 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       MaterialPageRoute(builder: (_) => const EqualizerScreen()),
                     ),
                   ),
+                  ListTile(
+                    leading: Icon(Icons.graphic_eq_rounded, color: theme.primary),
+                    title: Text('Streaming Quality', style: TextStyle(color: theme.textPrimary)),
+                    subtitle: Text(
+                      ps.streamingQuality == 'auto'
+                          ? 'Automatic (Fastest • Studio 320k / AAC)'
+                          : ps.streamingQuality == '320k'
+                              ? 'Studio Master (320 kbps)'
+                              : ps.streamingQuality == '256k'
+                                  ? 'High (256 kbps AAC)'
+                                  : 'Data Saver (128 kbps Opus)',
+                      style: TextStyle(color: theme.textSecondary, fontSize: 12),
+                    ),
+                    trailing: DropdownButton<String>(
+                      value: ps.streamingQuality,
+                      underline: const SizedBox.shrink(),
+                      dropdownColor: theme.isDarkMode ? const Color(0xFF1A1A22) : Colors.white,
+                      style: TextStyle(color: theme.textPrimary, fontSize: 13, fontWeight: FontWeight.w700),
+                      items: const [
+                        DropdownMenuItem(value: 'auto', child: Text('Auto (Studio)')),
+                        DropdownMenuItem(value: '320k', child: Text('320 kbps')),
+                        DropdownMenuItem(value: '256k', child: Text('256 kbps')),
+                        DropdownMenuItem(value: '128k', child: Text('128 kbps')),
+                      ],
+                      onChanged: (v) {
+                        if (v != null) ps.setStreamingQuality(v);
+                      },
+                    ),
+                  ),
                   SwitchListTile(
                     title: Text('Omni Brain Auto-Queue', style: TextStyle(color: theme.textPrimary)),
                     subtitle: Text('Auto-inject related YouTube Music tracks into queue',
@@ -473,11 +514,58 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     onChanged: ps.toggleOmniBrain,
                   ),
                   SwitchListTile(
+                    title: Text('Gapless Playback', style: TextStyle(color: theme.textPrimary)),
+                    subtitle: Text('Preload upcoming audio tracks for seamless transitions',
+                        style: TextStyle(color: theme.textSecondary, fontSize: 12)),
+                    value: ps.isGaplessEnabled,
+                    activeThumbColor: theme.primary,
+                    onChanged: ps.toggleGapless,
+                  ),
+                  SwitchListTile(
                     title: Text('Smart Crossfade (${ps.crossfadeSeconds}s)',
                         style: TextStyle(color: theme.textPrimary)),
+                    subtitle: Text('Apple Music DJ beat crossfade between tracks',
+                        style: TextStyle(color: theme.textSecondary, fontSize: 12)),
                     value: ps.isSmartCrossfade,
                     activeThumbColor: theme.primary,
                     onChanged: ps.toggleSmartCrossfade,
+                  ),
+                  if (ps.isSmartCrossfade)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Row(
+                        children: [
+                          const Text('1s', style: TextStyle(color: Colors.white38, fontSize: 11)),
+                          Expanded(
+                            child: Slider(
+                              value: ps.crossfadeSeconds.toDouble(),
+                              min: 1,
+                              max: 12,
+                              divisions: 11,
+                              activeColor: theme.primary,
+                              label: '${ps.crossfadeSeconds}s',
+                              onChanged: (v) => ps.setCrossfadeSeconds(v.round()),
+                            ),
+                          ),
+                          const Text('12s', style: TextStyle(color: Colors.white38, fontSize: 11)),
+                        ],
+                      ),
+                    ),
+                  SwitchListTile(
+                    title: Text('Trim Silence', style: TextStyle(color: theme.textPrimary)),
+                    subtitle: Text('Automatically skips empty track lead-in gaps',
+                        style: TextStyle(color: theme.textSecondary, fontSize: 12)),
+                    value: ps.isSilenceTrimEnabled,
+                    activeThumbColor: theme.primary,
+                    onChanged: ps.toggleSilenceTrim,
+                  ),
+                  SwitchListTile(
+                    title: Text('Lossless Audio Priority', style: TextStyle(color: theme.textPrimary)),
+                    subtitle: Text('Prefers FLAC/ALAC sources when available',
+                        style: TextStyle(color: theme.textSecondary, fontSize: 12)),
+                    value: ps.isLosslessEnabled,
+                    activeThumbColor: theme.primary,
+                    onChanged: ps.toggleLossless,
                   ),
                   SwitchListTile(
                     title: Text('Data Saver Mode', style: TextStyle(color: theme.textPrimary)),
@@ -486,6 +574,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     value: ps.isDataSaverEnabled,
                     activeThumbColor: theme.primary,
                     onChanged: ps.toggleDataSaver,
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.cleaning_services_rounded, color: Colors.amberAccent),
+                    title: Text('Clear Audio & Memory Cache', style: TextStyle(color: theme.textPrimary)),
+                    subtitle: Text('Frees allocated stream buffers and temporary cache',
+                        style: TextStyle(color: theme.textSecondary, fontSize: 12)),
+                    trailing: const Icon(Icons.arrow_forward_ios_rounded, color: Colors.white38, size: 14),
+                    onTap: () async {
+                      await ps.clearAudioCache();
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Audio stream & memory cache cleared!')),
+                        );
+                      }
+                    },
                   ),
                 ],
               ),

@@ -26,16 +26,6 @@ class _ListenTogetherScreenState extends State<ListenTogetherScreen> {
     _nameCtrl.text = widget.playerService.userName;
     _lt.addListener(_onUpdate);
     _lt.discoverServer();
-    _lt.onRemoteSync = (track, isPlaying, posMs) {
-      if (widget.playerService.currentTrack?.id != track.id) {
-        widget.playerService.playTrack(track);
-      }
-      if (isPlaying && !widget.playerService.isPlaying) {
-        widget.playerService.resume();
-      } else if (!isPlaying && widget.playerService.isPlaying) {
-        widget.playerService.pause();
-      }
-    };
   }
 
   @override
@@ -127,6 +117,34 @@ class _ListenTogetherScreenState extends State<ListenTogetherScreen> {
                         ),
                       ],
                     ),
+                    if (_lt.participants.isNotEmpty) ...[
+                      const SizedBox(height: 16),
+                      Text(
+                        'MEMBERS (${_lt.participants.length})',
+                        style: TextStyle(
+                          color: theme.textSecondary,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 1.2,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 6,
+                        children: [
+                          for (final p in _lt.participants)
+                            Chip(
+                              avatar: CircleAvatar(
+                                backgroundColor: p.contains('Host') ? Colors.amber : theme.primary,
+                                radius: 8,
+                              ),
+                              label: Text(p, style: const TextStyle(fontSize: 12)),
+                              backgroundColor: Colors.white.withValues(alpha: 0.08),
+                            ),
+                        ],
+                      ),
+                    ],
                   ],
                 ],
               ),

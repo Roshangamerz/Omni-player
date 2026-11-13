@@ -56,7 +56,9 @@ class AudioPlayerService extends ChangeNotifier {
 
   AppThemeMode _themeMode = AppThemeMode.midnightLuxe;
   String _userName = 'Listener';
-  String _playerStyle = 'apple'; // 'apple' | 'material'
+  String _playerStyle = 'apple'; // 'apple' (default) | 'vinyl' | 'material'
+  String _streamingQuality = 'auto'; // 'auto' | '320k' | '256k' | '128k'
+  bool _isHandlingRemoteSync = false;
   bool _isCanvasEnabled = true;
   bool _isOmniBrainEnabled = true;
   String _activeQualityBadge = '256 kbps AAC';
@@ -106,6 +108,7 @@ class AudioPlayerService extends ChangeNotifier {
   AppThemeMode get themeMode => _themeMode;
   String get userName => _userName;
   String get playerStyle => _playerStyle;
+  String get streamingQuality => _streamingQuality;
   bool get isCanvasEnabled => _isCanvasEnabled;
   bool get isOmniBrainEnabled => _isOmniBrainEnabled;
   String get activeQualityBadge => _activeQualityBadge;
@@ -182,6 +185,31 @@ class AudioPlayerService extends ChangeNotifier {
           }
         }
       });
+      // Listen Together Synchronized Playback Listener
+      ListenTogetherService().onRemoteSync = (track, isPlaying, posMs, action) async {
+        _isHandlingRemoteSync = true;
+        try {
+          if (action == 'play' || action == 'change_track') {
+            if (_currentTrack?.id != track.id) {
+              await playTrack(track);
+            } else if (!this.isPlaying) {
+              await resume();
+            }
+            if (posMs > 0 && (_position.inMilliseconds - posMs).abs() > 2500) {
+              await seek(Duration(milliseconds: posMs));
+            }
+          } else if (action == 'pause') {
+            if (this.isPlaying) await pause();
+            if (posMs > 0) await seek(Duration(milliseconds: posMs));
+          } else if (action == 'resume') {
+            if (!this.isPlaying) await resume();
+          } else if (action == 'seek') {
+            await seek(Duration(milliseconds: posMs));
+          }
+        } finally {
+          _isHandlingRemoteSync = false;
+        }
+      };
     } catch (e) {
       debugPrint('AudioPlayer platform init error: $e');
     }
@@ -276,6 +304,7 @@ class AudioPlayerService extends ChangeNotifier {
 
       _userName = prefs.getString('omni_user_name') ?? 'Listener';
       _playerStyle = prefs.getString('omni_player_style') ?? 'apple';
+      _streamingQuality = prefs.getString('omni_streaming_quality') ?? 'auto';
       _isCanvasEnabled = prefs.getBool('omni_canvas_enabled') ?? true;
       _isOmniBrainEnabled = prefs.getBool('omni_brain_enabled') ?? true;
       _isGlassEnabled = prefs.getBool('omni_glass_enabled') ?? true;
@@ -393,7 +422,9 @@ class AudioPlayerService extends ChangeNotifier {
 
     _addToHistory(track);
     StatsService().recordPlay(track);
-    ListenTogetherService().broadcastTrackState(track, true, 0);
+    if (!_isHandlingRemoteSync) {
+      ListenTogetherService().broadcastPlaybackAction('play', track: track, positionMs: 0, isPlaying: true);
+    }
     _updateMediaNotification();
     notifyListeners();
 
@@ -791,6 +822,14 @@ class AudioPlayerService extends ChangeNotifier {
     }
     _playerState = PlayerState.paused;
     _updateMediaNotification();
+    if (!_isHandlingRemoteSync) {
+      ListenTogetherService().broadcastPlaybackAction(
+        'pause',
+        track: _currentTrack,
+        positionMs: _position.inMilliseconds,
+        isPlaying: false,
+      );
+    }
     notifyListeners();
   }
 
@@ -805,6 +844,14 @@ class AudioPlayerService extends ChangeNotifier {
     }
     _playerState = PlayerState.playing;
     _updateMediaNotification();
+    if (!_isHandlingRemoteSync) {
+      ListenTogetherService().broadcastPlaybackAction(
+        'resume',
+        track: _currentTrack,
+        positionMs: _position.inMilliseconds,
+        isPlaying: true,
+      );
+    }
     notifyListeners();
   }
 
@@ -820,6 +867,14 @@ class AudioPlayerService extends ChangeNotifier {
       await _activePlayer.seek(newPosition);
     } catch (_) {}
     _updateMediaNotification();
+    if (!_isHandlingRemoteSync) {
+      ListenTogetherService().broadcastPlaybackAction(
+        'seek',
+        track: _currentTrack,
+        positionMs: newPosition.inMilliseconds,
+        isPlaying: isPlaying,
+      );
+    }
   }
 
   Future<void> seekBy(Duration delta) async {
@@ -1193,6 +1248,27 @@ class AudioPlayerService extends ChangeNotifier {
     _playerStyle = style;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('omni_player_style', style);
+    notifyListeners();
+  }
+
+  Future<void> cyclePlayerStyle() async {
+    final next = _playerStyle == 'apple'
+        ? 'vinyl'
+        : _playerStyle == 'vinyl'
+            ? 'material'
+            : 'apple';
+    await setPlayerStyle(next);
+  }
+
+  Future<void> setStreamingQuality(String quality) async {
+    _streamingQuality = quality;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('omni_streaming_quality', quality);
+    notifyListeners();
+  }
+
+  Future<void> clearAudioCache() async {
+    AudioStreamService().clearCache();
     notifyListeners();
   }
 

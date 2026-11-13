@@ -11,6 +11,7 @@ import '../services/odesli_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/canvas_artwork_player.dart';
 import '../widgets/echo_components.dart';
+import '../widgets/retro_turntable_player.dart';
 import 'equalizer_screen.dart';
 
 /// Echo Music Reconstructed Now Playing Screen
@@ -380,11 +381,13 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
                 ? _buildAmbientOverlay(track, isPlaying)
                 : _showLyrics
                     ? _buildLyricsView(track, pos, dur, fraction, isPlaying, isBuffering)
-                    : isAppleStyle
-                        ? _buildApplePlayerView(
-                            track, pos, dur, fraction, isPlaying, isBuffering, isLiked)
-                        : _buildMaterialPlayerView(
-                            track, pos, dur, fraction, isPlaying, isBuffering, isLiked, isDownloaded),
+                    : widget.playerService.playerStyle == 'vinyl'
+                        ? _buildVinylPlayerView(track)
+                        : isAppleStyle
+                            ? _buildApplePlayerView(
+                                track, pos, dur, fraction, isPlaying, isBuffering, isLiked)
+                            : _buildMaterialPlayerView(
+                                track, pos, dur, fraction, isPlaying, isBuffering, isLiked, isDownloaded),
           ),
         ],
       ),
@@ -438,7 +441,7 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
   }
 
   Widget _buildTopChrome(Track track) {
-    final isApple = widget.playerService.playerStyle == 'apple';
+    final style = widget.playerService.playerStyle;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       child: Row(
@@ -468,14 +471,17 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
             ),
           ),
           IconButton(
-            tooltip: isApple ? 'Switch to Material Player' : 'Switch to Apple Player',
+            tooltip: 'Switch Player Style (${style == "apple" ? "Apple" : style == "vinyl" ? "Retro Turntable" : "Material"})',
             icon: Icon(
-              isApple ? Icons.style_rounded : Icons.fullscreen_rounded,
-              color: Colors.white,
-              size: 21,
+              style == 'vinyl'
+                  ? Icons.album_rounded
+                  : style == 'apple'
+                      ? Icons.fullscreen_rounded
+                      : Icons.style_rounded,
+              color: style == 'vinyl' ? const Color(0xFFE2B170) : Colors.white,
+              size: 22,
             ),
-            onPressed: () =>
-                widget.playerService.setPlayerStyle(isApple ? 'material' : 'apple'),
+            onPressed: widget.playerService.cyclePlayerStyle,
           ),
           IconButton(
             tooltip: 'Ambient Mode',
@@ -492,6 +498,27 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildVinylPlayerView(Track track) {
+    return Column(
+      children: [
+        _buildTopChrome(track),
+        Expanded(
+          child: RetroTurntablePlayer(
+            track: track,
+            playerService: widget.playerService,
+            theme: widget.theme,
+            onToggleLyrics: () => setState(() => _showLyrics = !_showLyrics),
+            onOpenQueue: _showQueueSheet,
+            onOpenEqualizer: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const EqualizerScreen()),
+            ),
+          ),
+        ),
+      ],
     );
   }
 

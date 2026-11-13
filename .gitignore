@@ -56,7 +56,7 @@ android/*.keystore
 # Build artifacts
 *.apk
 *.aab
-!releases/*.apk
+releases/*.apk
 /build/
 android/build/
 android/app/build/

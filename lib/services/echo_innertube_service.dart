@@ -512,7 +512,7 @@ class EchoInnerTubeService {
                 'racyCheckOk': true,
               }),
             )
-            .timeout(const Duration(seconds: 4));
+            .timeout(const Duration(milliseconds: 2200));
 
         if (resp.statusCode == 200) {
           final json = jsonDecode(resp.body) as Map<String, dynamic>;

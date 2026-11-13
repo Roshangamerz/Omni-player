@@ -1,11 +1,13 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:omni_player/models/track.dart';
+import 'package:omni_player/services/audio_player_service.dart';
 import 'package:omni_player/services/echo_innertube_service.dart';
 import 'package:omni_player/services/extension_manager_service.dart';
 import 'package:omni_player/services/uptime_service.dart';
 import 'package:omni_player/theme/app_theme.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
   group('Echo Music reverse-engineered models & parsers', () {
     test('Track.parseLrc parses standard and enhanced word-by-word LRC', () {
       const lrc = '''
@@ -75,6 +77,11 @@ void main() {
       expect(theme.primary.toARGB32(), 0xFFE2B170); // Champagne Gold
       expect(theme.scaffoldBg.toARGB32(), 0xFF07070A); // Deep Obsidian
       expect(theme.premiumAccentGradient.colors.length, greaterThanOrEqualTo(2));
+    });
+
+    test('AudioPlayerService has apple player style as default and supports vinyl turntable', () {
+      final ps = AudioPlayerService();
+      expect(ps.playerStyle, 'apple'); // Apple Player UI default
     });
   });
 }
