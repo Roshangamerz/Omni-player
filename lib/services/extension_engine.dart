@@ -94,6 +94,7 @@ class JioSaavnMusicSource implements AudioSourceProvider {
           int sec = 210;
           final rawDur = item['duration']?.toString() ?? '';
           if (rawDur.isNotEmpty) sec = int.tryParse(rawDur) ?? 210;
+          if (sec > 0 && sec < 40) continue;
 
           tracks.add(
             Track(
@@ -785,8 +786,12 @@ class ExtensionEngine extends ChangeNotifier {
       return aScore.compareTo(bScore);
     });
 
-    _searchTrackCache[cacheKey] = _CachedResult(results);
-    return results;
+    final filtered = results
+        .where((t) => t.duration == Duration.zero || t.duration.inSeconds >= 40)
+        .toList();
+
+    _searchTrackCache[cacheKey] = _CachedResult(filtered);
+    return filtered;
   }
 
   Future<List<AudioCollection>> searchCollections(String query) async {
@@ -889,6 +894,7 @@ class ExtensionEngine extends ChangeNotifier {
           int sec = 210;
           final rawDur = item['duration']?.toString() ?? '';
           if (rawDur.isNotEmpty) sec = int.tryParse(rawDur) ?? 210;
+          if (sec > 0 && sec < 40) continue;
 
           tracks.add(
             Track(

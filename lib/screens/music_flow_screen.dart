@@ -84,11 +84,14 @@ class _MusicFlowScreenState extends State<MusicFlowScreen> with AutomaticKeepAli
       if (tracks.isEmpty) {
         tracks = widget.extensionEngine.curatedTracks;
       }
+      final validTracks = tracks
+          .where((t) => t.duration == Duration.zero || t.duration.inSeconds >= 40)
+          .toList();
       if (!mounted) return;
       setState(() {
         _feed
           ..clear()
-          ..addAll(tracks);
+          ..addAll(validTracks);
         _loading = false;
       });
       if (_feed.isNotEmpty) {

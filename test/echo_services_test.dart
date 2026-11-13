@@ -1,7 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:omni_player/models/track.dart';
+import 'package:omni_player/services/echo_innertube_service.dart';
 import 'package:omni_player/services/extension_manager_service.dart';
 import 'package:omni_player/services/uptime_service.dart';
+import 'package:omni_player/theme/app_theme.dart';
 
 void main() {
   group('Echo Music reverse-engineered models & parsers', () {
@@ -44,6 +46,35 @@ void main() {
       expect(list.any((s) => s.name.contains('BetterLyrics')), isTrue);
       expect(list.any((s) => s.name.contains('ShazamKit')), isTrue);
       expect(list.any((s) => s.name.contains('Tidal')), isTrue);
+    });
+
+    test('EchoInnerTubeService minSongDurationSeconds filters short clips', () {
+      expect(EchoInnerTubeService.minSongDurationSeconds, 40);
+      const shortTrack = Track(
+        id: 'yt_short123',
+        title: 'Short Ringtone Clip',
+        artist: 'Tester',
+        duration: Duration(seconds: 25),
+        artworkUrl: 'https://img.youtube.com/vi/short123/hqdefault.jpg',
+        streamUrl: '',
+      );
+      const normalTrack = Track(
+        id: 'yt_full123',
+        title: 'Full Master Track',
+        artist: 'Tester',
+        duration: Duration(seconds: 215),
+        artworkUrl: 'https://img.youtube.com/vi/full123/hqdefault.jpg',
+        streamUrl: '',
+      );
+      expect(shortTrack.duration.inSeconds < EchoInnerTubeService.minSongDurationSeconds, isTrue);
+      expect(normalTrack.duration.inSeconds >= EchoInnerTubeService.minSongDurationSeconds, isTrue);
+    });
+
+    test('AppThemeMode.midnightLuxe defines luxury champagne and obsidian palette', () {
+      final theme = AppTheme(mode: AppThemeMode.midnightLuxe);
+      expect(theme.primary.toARGB32(), 0xFFE2B170); // Champagne Gold
+      expect(theme.scaffoldBg.toARGB32(), 0xFF07070A); // Deep Obsidian
+      expect(theme.premiumAccentGradient.colors.length, greaterThanOrEqualTo(2));
     });
   });
 }

@@ -125,13 +125,19 @@ class UnifiedSearchService {
       final suggestions = results[2] as List<String>;
       final networkCollections = results[3] as List<AudioCollection>;
 
-      // Filter corrupt/blank titles
+      // Filter corrupt/blank titles and tracks under 40s (shorts/clips)
       final validTracks = <Track>[];
       for (int i = 0; i < appleTracks.length; i++) {
-        if (appleTracks[i].title.trim().length > 1) validTracks.add(appleTracks[i]);
+        final t = appleTracks[i];
+        if (t.title.trim().length > 1 && (t.duration == Duration.zero || t.duration.inSeconds >= 40)) {
+          validTracks.add(t);
+        }
       }
       for (int i = 0; i < ytTracks.length; i++) {
-        if (ytTracks[i].title.trim().length > 1) validTracks.add(ytTracks[i]);
+        final t = ytTracks[i];
+        if (t.title.trim().length > 1 && (t.duration == Duration.zero || t.duration.inSeconds >= 40)) {
+          validTracks.add(t);
+        }
       }
 
       // Synthesize album collections from returned tracks if missing

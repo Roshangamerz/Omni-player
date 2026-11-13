@@ -12,6 +12,9 @@ class EchoInnerTubeService {
   factory EchoInnerTubeService() => _instance;
   EchoInnerTubeService._internal();
 
+  /// Minimum song duration in seconds (removes shorts, intros, previews, ringtones under 40s)
+  static const int minSongDurationSeconds = 40;
+
   static const String _ytmApiBase = 'https://music.youtube.com/youtubei/v1/';
   static const String _ytmOrigin = 'https://music.youtube.com';
   static const String _webRemixVersion = '1.20260213.01.00';
@@ -299,9 +302,16 @@ class EchoInnerTubeService {
       _collectItemsFromNode(data['contents'], tracks);
     }
 
-    if (tracks.isNotEmpty) return tracks;
+    final filtered = tracks
+        .where((t) => t.duration == Duration.zero || t.duration.inSeconds >= minSongDurationSeconds)
+        .toList();
+    if (filtered.isNotEmpty) return filtered;
+
     // Fallback to existing YoutubeExplode search
-    return InnerTubeService().searchTracks(clean);
+    final fb = await InnerTubeService().searchTracks(clean);
+    return fb
+        .where((t) => t.duration == Duration.zero || t.duration.inSeconds >= minSongDurationSeconds)
+        .toList();
   }
 
   Future<List<AudioCollection>> searchCollections(String query, {required String filterParams}) async {
@@ -379,11 +389,13 @@ class EchoInnerTubeService {
           final thumb = _extractThumbnail(renderer['thumbnail']) ??
               'https://img.youtube.com/vi/$vid/hqdefault.jpg';
           final durText = _extractRunsText(renderer['lengthText']);
+          final dur = _parseDuration(durText);
+          if (dur > Duration.zero && dur.inSeconds < minSongDurationSeconds) continue;
           tracks.add(Track(
             id: 'yt_$vid',
             title: title.isNotEmpty ? title : 'Recommended Track',
             artist: artist.isNotEmpty ? artist.split('•').first.trim() : 'YouTube Music',
-            duration: _parseDuration(durText),
+            duration: dur,
             artworkUrl: thumb,
             streamUrl: '',
             sourcePluginId: 'YouTube Music Radio',
@@ -442,36 +454,47 @@ class EchoInnerTubeService {
     return const [];
   }
 
-  // ─── 7. INNERTUBE PLAYER STREAM FALLBACK (ANDROID_VR / IOS) ────────────────
+  // ─── 7. ECHO MUSIC INNERTUBE FAST RESPONSE PLAYER ENGINE ──────────────────
   Future<String?> resolveStreamUrlDirect(String rawVideoId) async {
     final videoId = rawVideoId.replaceAll('yt_', '').replaceAll('ytm_', '').trim();
     if (videoId.isEmpty) return null;
 
     final clients = [
       {
-        'clientName': 'ANDROID_VR',
-        'clientVersion': '1.65.10',
-        'clientId': '28',
-        'userAgent': 'com.google.android.apps.youtube.vr.oculus/1.65.10 (Linux; U; Android 12L; Quest 3 Build/SQ3A.220605.009.A1) gzip',
-      },
-      {
         'clientName': 'IOS',
         'clientVersion': '21.03.1',
         'clientId': '5',
         'userAgent': 'com.google.ios.youtube/21.03.1 (iPhone16,2; U; CPU iOS 18_2 like Mac OS X;)',
+        'origin': 'https://www.youtube.com',
+      },
+      {
+        'clientName': 'VISIONOS',
+        'clientVersion': '0.1',
+        'clientId': '101',
+        'userAgent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15',
+        'origin': 'https://www.youtube.com',
+      },
+      {
+        'clientName': 'ANDROID_VR',
+        'clientVersion': '1.65.10',
+        'clientId': '28',
+        'userAgent': 'com.google.android.apps.youtube.vr.oculus/1.65.10 (Linux; U; Android 12L; eureka-user Build/SQ3A.220605.009.A1) gzip',
+        'origin': 'https://www.youtube.com',
       },
     ];
 
     for (final c in clients) {
       try {
+        final origin = c['origin']!;
         final resp = await _client
             .post(
-              Uri.parse('${_ytmApiBase}player?prettyPrint=false'),
+              Uri.parse('$origin/youtubei/v1/player?prettyPrint=false'),
               headers: {
                 'Content-Type': 'application/json',
                 'User-Agent': c['userAgent']!,
                 'X-YouTube-Client-Name': c['clientId']!,
                 'X-YouTube-Client-Version': c['clientVersion']!,
+                'Origin': origin,
                 if (_visitorData != null) 'X-Goog-Visitor-Id': _visitorData!,
               },
               body: jsonEncode({
@@ -489,20 +512,38 @@ class EchoInnerTubeService {
                 'racyCheckOk': true,
               }),
             )
-            .timeout(const Duration(seconds: 6));
+            .timeout(const Duration(seconds: 4));
 
         if (resp.statusCode == 200) {
           final json = jsonDecode(resp.body) as Map<String, dynamic>;
-          final adaptive = json['streamingData']?['adaptiveFormats'] as List<dynamic>? ?? const [];
-          final audioFormats = adaptive.where((f) {
-            final mime = (f['mimeType']?.toString() ?? '').toLowerCase();
-            return mime.startsWith('audio/mp4') && f['url'] != null;
-          }).toList();
-          audioFormats.sort((a, b) =>
-              ((b['bitrate'] as num?) ?? 0).compareTo((a['bitrate'] as num?) ?? 0));
-          if (audioFormats.isNotEmpty) {
-            final url = audioFormats.first['url']?.toString();
-            if (url != null && url.isNotEmpty) return url;
+          final playStatus = json['playabilityStatus']?['status']?.toString();
+          if (playStatus == 'OK') {
+            final adaptive = json['streamingData']?['adaptiveFormats'] as List<dynamic>? ?? const [];
+            // 1. Prefer direct MP4/AAC (itag 140 / 139) with direct url
+            final directMp4 = adaptive.where((f) {
+              final mime = (f['mimeType']?.toString() ?? '').toLowerCase();
+              final url = f['url']?.toString() ?? '';
+              return (mime.contains('audio/mp4') || mime.contains('aac')) && url.isNotEmpty;
+            }).toList();
+
+            if (directMp4.isNotEmpty) {
+              directMp4.sort((a, b) => ((b['bitrate'] as num?) ?? 0).compareTo((a['bitrate'] as num?) ?? 0));
+              final url = directMp4.first['url']?.toString();
+              if (url != null && url.isNotEmpty) return url;
+            }
+
+            // 2. Direct Opus / WebM (itag 251 / 250)
+            final directWebm = adaptive.where((f) {
+              final mime = (f['mimeType']?.toString() ?? '').toLowerCase();
+              final url = f['url']?.toString() ?? '';
+              return mime.contains('audio') && url.isNotEmpty;
+            }).toList();
+
+            if (directWebm.isNotEmpty) {
+              directWebm.sort((a, b) => ((b['bitrate'] as num?) ?? 0).compareTo((a['bitrate'] as num?) ?? 0));
+              final url = directWebm.first['url']?.toString();
+              if (url != null && url.isNotEmpty) return url;
+            }
           }
         }
       } catch (_) {}
@@ -728,6 +769,10 @@ class EchoInnerTubeService {
         (fallbackArtwork.isNotEmpty
             ? fallbackArtwork
             : 'https://img.youtube.com/vi/$videoId/hqdefault.jpg');
+
+    if (duration > Duration.zero && duration.inSeconds < minSongDurationSeconds) {
+      return null;
+    }
 
     return Track(
       id: 'yt_$videoId',

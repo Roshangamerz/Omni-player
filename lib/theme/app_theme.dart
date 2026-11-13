@@ -2,12 +2,13 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 
 enum AppThemeMode {
+  midnightLuxe,  // Ultra-Luxury Obsidian Black & Champagne Gold Glass
+  echoRose,      // Echo Music Signature Rose & Nothing OS Pure Black OLED
   oledNeonLime,  // Dark Planty (Emerald / Forest)
   dim,           // Dim / Slate Midnight
   pink,          // Barbie / Neon Bubblegum Pink
   marvels,       // Creator's Choice / Hero Themes
   custom,        // User Custom Color
-  echoRose,      // Echo Music Signature Rose & Nothing OS Pure Black OLED
 }
 
 class AppTheme {
@@ -38,6 +39,8 @@ class AppTheme {
   Color get primary {
     if (isCustom && customPrimary != null) return customPrimary!;
     switch (mode) {
+      case AppThemeMode.midnightLuxe:
+        return const Color(0xFFE2B170); // Royal Champagne Gold Metallic
       case AppThemeMode.dim:
         return const Color(0xFF0284C7);
       case AppThemeMode.pink:
@@ -53,7 +56,7 @@ class AppTheme {
       case AppThemeMode.custom:
         return customPrimary ?? (isDarkMode ? const Color(0xFF10B981) : const Color(0xFF059669));
       case AppThemeMode.echoRose:
-        return const Color(0xFFED5564); // Echo Music signature seed
+        return const Color(0xFFF43F5E); // Vivid Echo Crimson Rose
       case AppThemeMode.oledNeonLime:
         return isDarkMode ? const Color(0xFF10B981) : const Color(0xFF059669); // Warm Lush Emerald Green
     }
@@ -62,6 +65,8 @@ class AppTheme {
   Color get primaryGlow {
     if (isCustom && customPrimary != null) return customPrimary!;
     switch (mode) {
+      case AppThemeMode.midnightLuxe:
+        return const Color(0xFFFDE68A); // Radiant Champagne Amber Glow
       case AppThemeMode.dim:
         return const Color(0xFF38BDF8);
       case AppThemeMode.pink:
@@ -77,16 +82,18 @@ class AppTheme {
       case AppThemeMode.custom:
         return customPrimary ?? const Color(0xFF34D399);
       case AppThemeMode.echoRose:
-        return const Color(0xFFFF7A88);
+        return const Color(0xFFFF5277);
       case AppThemeMode.oledNeonLime:
         return const Color(0xFF34D399); // Warm Emerald Glow
     }
   }
 
-  Color get primaryForeground => (mode == AppThemeMode.marvels && (marvelHero == 'infinity' || marvelHero == 'thor')) ? Colors.black : Colors.white;
+  Color get primaryForeground => (mode == AppThemeMode.midnightLuxe || (mode == AppThemeMode.marvels && (marvelHero == 'infinity' || marvelHero == 'thor'))) ? Colors.black : Colors.white;
 
   Color get secondary {
     switch (mode) {
+      case AppThemeMode.midnightLuxe:
+        return const Color(0xFFF43F5E); // Radiant Electric Crimson Rose
       case AppThemeMode.dim:
         return const Color(0xFF0EA5E9);
       case AppThemeMode.pink:
@@ -112,6 +119,8 @@ class AppTheme {
     if (!isDarkMode) return const Color(0xFFF1F5F9);
     if (isCustom && customBg != null) return customBg!;
     switch (mode) {
+      case AppThemeMode.midnightLuxe:
+        return const Color(0xFF07070A); // Deep Obsidian Noir
       case AppThemeMode.dim:
         return const Color(0xFF0B1120);
       case AppThemeMode.pink:
@@ -139,6 +148,8 @@ class AppTheme {
     }
     if (!isGlassEnabled) {
       switch (mode) {
+        case AppThemeMode.midnightLuxe:
+          return const Color(0xFF101118); // Frosted Smoked Obsidian
         case AppThemeMode.dim:
           return const Color(0xFF1E293B);
         case AppThemeMode.pink:
@@ -160,6 +171,8 @@ class AppTheme {
       }
     }
     switch (mode) {
+      case AppThemeMode.midnightLuxe:
+        return const Color(0xFFE2B170).withValues(alpha: 0.08);
       case AppThemeMode.dim:
         return const Color(0xFF0284C7).withValues(alpha: 0.08);
       case AppThemeMode.pink:
@@ -187,6 +200,8 @@ class AppTheme {
     }
     if (!isGlassEnabled) {
       switch (mode) {
+        case AppThemeMode.midnightLuxe:
+          return const Color(0xFFE2B170).withValues(alpha: 0.28);
         case AppThemeMode.dim:
           return const Color(0xFF38BDF8).withValues(alpha: 0.2);
         case AppThemeMode.pink:
@@ -208,6 +223,8 @@ class AppTheme {
       }
     }
     switch (mode) {
+      case AppThemeMode.midnightLuxe:
+        return const Color(0xFFE2B170).withValues(alpha: 0.32);
       case AppThemeMode.dim:
         return const Color(0xFF38BDF8).withValues(alpha: 0.25);
       case AppThemeMode.pink:
@@ -235,6 +252,8 @@ class AppTheme {
     }
     if (!isGlassEnabled) {
       switch (mode) {
+        case AppThemeMode.midnightLuxe:
+          return const Color(0xFF0D0E16);
         case AppThemeMode.dim:
           return const Color(0xFF0F172A);
         case AppThemeMode.pink:
@@ -256,6 +275,8 @@ class AppTheme {
       }
     }
     switch (mode) {
+      case AppThemeMode.midnightLuxe:
+        return const Color(0xFF0D0E16).withValues(alpha: 0.85);
       case AppThemeMode.dim:
         return const Color(0xFF0B1120).withValues(alpha: 0.12);
       case AppThemeMode.pink:
@@ -281,6 +302,8 @@ class AppTheme {
   Color get textSecondary {
     if (!isDarkMode) return const Color(0xFF475569);
     switch (mode) {
+      case AppThemeMode.midnightLuxe:
+        return const Color(0xFFCBD5E1);
       case AppThemeMode.dim:
         return const Color(0xFF94A3B8);
       case AppThemeMode.pink:
@@ -301,6 +324,29 @@ class AppTheme {
     }
   }
 
+  LinearGradient get premiumAccentGradient {
+    switch (mode) {
+      case AppThemeMode.midnightLuxe:
+        return const LinearGradient(
+          colors: [Color(0xFFF59E0B), Color(0xFFE2B170), Color(0xFFF43F5E)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        );
+      case AppThemeMode.echoRose:
+        return const LinearGradient(
+          colors: [Color(0xFFF43F5E), Color(0xFFFB7185), Color(0xFFFF2A55)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        );
+      default:
+        return LinearGradient(
+          colors: [primary, secondary],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        );
+    }
+  }
+
   LinearGradient get bgGradient {
     if (!isDarkMode) {
       return const LinearGradient(
@@ -317,6 +363,12 @@ class AppTheme {
       );
     }
     switch (mode) {
+      case AppThemeMode.midnightLuxe:
+        return const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF0F1017), Color(0xFF08080C), Color(0xFF020204)],
+        );
       case AppThemeMode.dim:
         return const LinearGradient(
           begin: Alignment.topCenter,

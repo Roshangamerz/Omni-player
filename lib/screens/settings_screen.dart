@@ -380,7 +380,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     spacing: 8,
                     runSpacing: 8,
                     children: [
-                      _themeChip(theme, AppThemeMode.echoRose, 'Echo Rose', const Color(0xFFED5564)),
+                      _themeChip(theme, AppThemeMode.midnightLuxe, '👑 Midnight Luxe', const Color(0xFFE2B170)),
+                      _themeChip(theme, AppThemeMode.echoRose, 'Echo Rose', const Color(0xFFF43F5E)),
                       _themeChip(theme, AppThemeMode.oledNeonLime, 'Dark Planty', const Color(0xFF10B981)),
                       _themeChip(theme, AppThemeMode.dim, 'Dim Slate', const Color(0xFF0284C7)),
                       _themeChip(theme, AppThemeMode.pink, 'Neon Pink', const Color(0xFFFF2A85)),

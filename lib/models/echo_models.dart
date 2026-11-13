@@ -28,6 +28,24 @@ class EchoHomeSection {
     this.tracks = const [],
     this.collections = const [],
   });
+
+  EchoHomeSection copyWith({
+    String? title,
+    String? subtitle,
+    String? browseId,
+    String? params,
+    List<Track>? tracks,
+    List<AudioCollection>? collections,
+  }) {
+    return EchoHomeSection(
+      title: title ?? this.title,
+      subtitle: subtitle ?? this.subtitle,
+      browseId: browseId ?? this.browseId,
+      params: params ?? this.params,
+      tracks: tracks ?? this.tracks,
+      collections: collections ?? this.collections,
+    );
+  }
 }
 
 class EchoHomeFeed {

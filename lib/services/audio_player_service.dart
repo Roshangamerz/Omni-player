@@ -54,7 +54,7 @@ class AudioPlayerService extends ChangeNotifier {
   final Map<String, List<Track>> _userPlaylists = {};
   final List<Track> _history = [];
 
-  AppThemeMode _themeMode = AppThemeMode.echoRose;
+  AppThemeMode _themeMode = AppThemeMode.midnightLuxe;
   String _userName = 'Listener';
   String _playerStyle = 'apple'; // 'apple' | 'material'
   bool _isCanvasEnabled = true;
@@ -517,7 +517,11 @@ class AudioPlayerService extends ChangeNotifier {
     if (activeStreamUrl.isEmpty || isYouTube || isSpotify || isApplePreview || forceFresh) {
       if (isYouTube || track.id.startsWith('yt_')) {
         try {
-          final directStream = await AudioStreamService().resolveStreamUrl(track.id);
+          final directStream = await AudioStreamService().resolveStreamUrl(
+            track.id,
+            songTitle: track.title,
+            songArtist: track.artist,
+          );
           if (directStream != null && directStream.isNotEmpty) {
             activeStreamUrl = directStream;
           }
@@ -527,19 +531,24 @@ class AudioPlayerService extends ChangeNotifier {
       if (activeStreamUrl.isEmpty || isApplePreview || isSpotify) {
         try {
           final query = '${track.title} ${track.artist}'.trim();
-          // Step 1: Query YouTube Music directly for instant stream resolution
-          final ytHits = await InnerTubeService().searchTracks(query);
-          if (ytHits.isNotEmpty) {
-            final ytDirect = await AudioStreamService().resolveStreamUrl(ytHits.first.id);
+          // Step 1: Query YouTube Music via Echo InnerTube for instant fast stream resolution
+          final ytHits = await EchoInnerTubeService().searchTracks(query);
+          final validHits = ytHits.where((t) => t.duration == Duration.zero || t.duration.inSeconds >= 40).toList();
+          if (validHits.isNotEmpty) {
+            final ytDirect = await AudioStreamService().resolveStreamUrl(
+              validHits.first.id,
+              songTitle: track.title,
+              songArtist: track.artist,
+            );
             if (ytDirect != null && ytDirect.isNotEmpty) {
               activeStreamUrl = ytDirect;
-              if (_currentTrack?.id == track.id && ytHits.first.duration > Duration.zero) {
-                _duration = ytHits.first.duration;
+              if (_currentTrack?.id == track.id && validHits.first.duration > Duration.zero) {
+                _duration = validHits.first.duration;
               }
             }
           }
 
-          // Step 2: Fallback to other providers
+          // Step 2: Fallback to high-speed JioSaavn / extension 320k sources
           if (activeStreamUrl.isEmpty || isApplePreview) {
             final fallbackTracks = await ExtensionEngine().searchAcrossAllSources(query);
             if (fallbackTracks.isNotEmpty) {
@@ -549,6 +558,7 @@ class AudioPlayerService extends ChangeNotifier {
               final matching = fallbackTracks.where((t) {
                 if (t.streamUrl.isEmpty || t.streamUrl.startsWith('asset:')) return false;
                 if (t.streamUrl.contains('apple.com') || t.streamUrl.contains('mzstatic.com')) return false;
+                if (t.duration > Duration.zero && t.duration.inSeconds < 40) return false;
                 final candTitle = t.title.toLowerCase();
                 if (candTitle.contains(cleanTitle) || cleanTitle.contains(candTitle)) return true;
                 return titleTokens.any((token) => candTitle.contains(token));

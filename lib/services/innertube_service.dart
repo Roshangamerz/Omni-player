@@ -76,6 +76,11 @@ class InnerTubeService {
           continue;
         }
 
+        final dur = video.duration ?? const Duration(seconds: 210);
+        if (dur > Duration.zero && dur.inSeconds < 40) {
+          continue;
+        }
+
         tracks.add(
           Track(
             id: 'yt_$videoId',
@@ -83,7 +88,7 @@ class InnerTubeService {
             artist: video.author.isNotEmpty ? video.author : 'YouTube Music',
             streamUrl: '', // Dynamically resolved on-demand via AudioStreamService
             artworkUrl: 'https://img.youtube.com/vi/$videoId/hqdefault.jpg',
-            duration: video.duration ?? const Duration(seconds: 210),
+            duration: dur,
             sourcePluginId: 'YouTube',
           ),
         );
