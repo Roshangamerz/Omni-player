@@ -21,39 +21,54 @@ class AudioStreamService {
   final Map<String, Future<String?>> _inFlight = {};
 
   /// Extract highest quality playable stream URL directly from CDNs
-  Future<String?> resolveStreamUrl(String rawVideoId, {String? songTitle, String? songArtist}) async {
+  Future<String?> resolveStreamUrl(
+    String rawVideoId, {
+    String? songTitle,
+    String? songArtist,
+    String quality = 'auto',
+  }) async {
     final videoId = rawVideoId.replaceAll('yt_', '').replaceAll('ytm_', '').trim();
     if (videoId.isEmpty) return null;
 
     final now = DateTime.now().millisecondsSinceEpoch;
+    final cacheKey = '$videoId:$quality';
 
     // 1. Instant 0ms memory cache lookup
-    final cached = _streamCache[videoId];
+    final cached = _streamCache[cacheKey];
     if (cached != null && cached.expireAtMs > now) {
       return cached.url;
     }
 
     // 2. In-flight request deduplication (prevents duplicate simultaneous network calls)
-    if (_inFlight.containsKey(videoId)) {
-      return _inFlight[videoId];
+    if (_inFlight.containsKey(cacheKey)) {
+      return _inFlight[cacheKey];
     }
 
-    final future = _fetchStreamUrl(videoId, now, songTitle: songTitle, songArtist: songArtist);
-    _inFlight[videoId] = future;
+    final future = _fetchStreamUrl(
+      videoId,
+      now,
+      cacheKey,
+      songTitle: songTitle,
+      songArtist: songArtist,
+      quality: quality,
+    );
+    _inFlight[cacheKey] = future;
 
     try {
       final result = await future;
       return result;
     } finally {
-      _inFlight.remove(videoId);
+      _inFlight.remove(cacheKey);
     }
   }
 
   Future<String?> _fetchStreamUrl(
     String videoId,
-    int now, {
+    int now,
+    String cacheKey, {
     String? songTitle,
     String? songArtist,
+    String quality = 'auto',
   }) async {
     // ── Ultra-Fast Concurrent Resolution (Echo InnerTube + 320k CDN in Parallel) ──
     // Whichever completes first (typically 120ms-250ms) immediately starts playback.
@@ -71,9 +86,9 @@ class AudioStreamService {
       }
     }
 
-    // Task A: Echo Music InnerTube Fast Response Engine (IOS / VISIONOS / ANDROID_VR)
+    // Task A: Echo Music InnerTube Fast Response Engine (VISIONOS / ANDROID_VR / ANDROID / IOS)
     pending++;
-    EchoInnerTubeService().resolveStreamUrlDirect(videoId).then((url) {
+    EchoInnerTubeService().resolveStreamUrlDirect(videoId, quality: quality).then((url) {
       tryComplete(url);
     }).catchError((_) {
       tryComplete(null);
@@ -99,11 +114,11 @@ class AudioStreamService {
 
     try {
       final fastUrl = await completer.future.timeout(
-        const Duration(milliseconds: 2800),
+        const Duration(milliseconds: 3200),
         onTimeout: () => null,
       );
       if (fastUrl != null && fastUrl.isNotEmpty) {
-        _putCache(videoId, fastUrl, now + _streamTtlMs);
+        _putCache(cacheKey, fastUrl, now + _streamTtlMs);
         return fastUrl;
       }
     } catch (_) {}
@@ -119,19 +134,24 @@ class AudioStreamService {
               s.container.name.toLowerCase() == 'mp4' ||
               s.codec.mimeType.contains('mp4') ||
               s.codec.mimeType.contains('aac'))
-          .toList()
-        ..sort((a, b) => b.bitrate.compareTo(a.bitrate));
+          .toList();
+
+      if (quality == '128k') {
+        mp4Audio.sort((a, b) => (a.bitrate.bitsPerSecond - 128000).abs().compareTo((b.bitrate.bitsPerSecond - 128000).abs()));
+      } else {
+        mp4Audio.sort((a, b) => b.bitrate.compareTo(a.bitrate));
+      }
 
       if (mp4Audio.isNotEmpty) {
         final url = mp4Audio.first.url.toString();
-        _putCache(videoId, url, now + _streamTtlMs);
+        _putCache(cacheKey, url, now + _streamTtlMs);
         return url;
       }
 
       final anyAudio = manifest.audioOnly.sortByBitrate();
       if (anyAudio.isNotEmpty) {
         final url = anyAudio.first.url.toString();
-        _putCache(videoId, url, now + _streamTtlMs);
+        _putCache(cacheKey, url, now + _streamTtlMs);
         return url;
       }
     } catch (e) {
@@ -144,7 +164,7 @@ class AudioStreamService {
         const Duration(seconds: 3),
       );
       if (hlsUrl.isNotEmpty) {
-        _putCache(videoId, hlsUrl, now + _streamTtlMs);
+        _putCache(cacheKey, hlsUrl, now + _streamTtlMs);
         return hlsUrl;
       }
     } catch (_) {}
@@ -152,17 +172,17 @@ class AudioStreamService {
     return null;
   }
 
-  void _putCache(String videoId, String url, int expireAtMs) {
+  void _putCache(String key, String url, int expireAtMs) {
     if (_streamCache.length >= _maxCacheSize) {
       _streamCache.remove(_streamCache.keys.first);
     }
-    _streamCache[videoId] = _CachedEntry(url, expireAtMs);
+    _streamCache[key] = _CachedEntry(url, expireAtMs);
   }
 
   void clearCacheForId(String rawVideoId) {
     final videoId = rawVideoId.replaceAll('yt_', '').replaceAll('ytm_', '').trim();
-    _streamCache.remove(videoId);
-    _inFlight.remove(videoId);
+    _streamCache.removeWhere((k, v) => k.startsWith(videoId));
+    _inFlight.removeWhere((k, v) => k.startsWith(videoId));
   }
 
   void clearCache() {

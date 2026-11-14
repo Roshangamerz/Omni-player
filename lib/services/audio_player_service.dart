@@ -11,9 +11,9 @@ import 'audio_stream_service.dart';
 import 'echo_innertube_service.dart';
 import 'extension_engine.dart';
 import 'extension_manager_service.dart';
-import 'innertube_service.dart';
 import 'listen_together_service.dart';
 import 'share_receiver_service.dart';
+import 'sponsorblock_service.dart';
 import 'stats_service.dart';
 
 enum PlaybackRepeatMode { off, all, one }
@@ -72,6 +72,10 @@ class AudioPlayerService extends ChangeNotifier {
   bool _isSilenceTrimEnabled = true;
   bool _isGaplessEnabled = true;
   bool _isAiRemixEnabled = true;
+  bool _isSponsorBlockEnabled = true;
+  List<SponsorBlockSegment> _currentSponsorSegments = [];
+  DateTime? _lastCompletionHandled;
+  int _consecutiveFailures = 0;
 
   // Smart Beat Mixing & Crossfade Engine (Apple Music Style)
   bool _isSmartCrossfade = true;
@@ -121,6 +125,8 @@ class AudioPlayerService extends ChangeNotifier {
   bool get isSilenceTrimEnabled => _isSilenceTrimEnabled;
   bool get isGaplessEnabled => _isGaplessEnabled;
   bool get isAiRemixEnabled => _isAiRemixEnabled;
+  bool get isSponsorBlockEnabled => _isSponsorBlockEnabled;
+  List<SponsorBlockSegment> get currentSponsorSegments => List.unmodifiable(_currentSponsorSegments);
   bool get isSmartCrossfade => _isSmartCrossfade;
   int get crossfadeSeconds => _crossfadeSeconds;
   bool get isCrossfading => _isCrossfading;
@@ -258,7 +264,7 @@ class AudioPlayerService extends ChangeNotifier {
           _updateMediaNotification();
           notifyListeners();
         } else if (state == PlayerState.completed && !_isCrossfading) {
-          _handleTrackCompleted();
+          // Handled strictly by player.onPlayerComplete to eliminate double-skip race condition
         }
       }
     });
@@ -266,6 +272,18 @@ class AudioPlayerService extends ChangeNotifier {
     player.onPositionChanged.listen((pos) {
       if (player == _activePlayer) {
         _position = pos;
+
+        // Echo SponsorBlock Auto-Skip (intros, sponsors, non-music offtopic)
+        if (_isSponsorBlockEnabled && _currentSponsorSegments.isNotEmpty) {
+          final posSec = pos.inMilliseconds / 1000.0;
+          for (final seg in _currentSponsorSegments) {
+            if (seg.containsSecond(posSec)) {
+              debugPrint('SponsorBlock: skipping ${seg.category} (${seg.start}s -> ${seg.end}s)');
+              seek(Duration(milliseconds: (seg.end * 1000).toInt() + 150));
+              break;
+            }
+          }
+        }
 
         // Apple Music Seamless Crossfade Trigger
         _checkAndTriggerCrossfade(pos);
@@ -315,6 +333,7 @@ class AudioPlayerService extends ChangeNotifier {
       _isSilenceTrimEnabled = prefs.getBool('omni_silence_trim') ?? true;
       _isGaplessEnabled = prefs.getBool('omni_gapless') ?? true;
       _isAiRemixEnabled = prefs.getBool('omni_ai_remix_enabled') ?? true;
+      _isSponsorBlockEnabled = prefs.getBool('omni_sponsorblock_enabled') ?? true;
       _isSmartCrossfade = prefs.getBool('omni_smart_crossfade') ?? true;
       _crossfadeSeconds = prefs.getInt('omni_crossfade_seconds') ?? 5;
       _marvelHero = prefs.getString('omni_marvel_hero') ?? 'iron_man';
@@ -432,6 +451,18 @@ class AudioPlayerService extends ChangeNotifier {
       _injectSmartRecommendations();
     }
 
+    // Echo SponsorBlock Integration: Prefetch skip segments for YouTube content
+    if (_isSponsorBlockEnabled && (track.id.startsWith('yt_') || track.sourcePluginId.toLowerCase().contains('youtube'))) {
+      SponsorBlockService().getSkipSegments(track.id).then((segs) {
+        if (_currentTrack?.id == track.id) {
+          _currentSponsorSegments = segs;
+          notifyListeners();
+        }
+      }).catchError((_) {});
+    } else {
+      _currentSponsorSegments = [];
+    }
+
     try {
       if (wasPlaying) {
         await _microFadeOut(_activePlayer);
@@ -442,16 +473,21 @@ class AudioPlayerService extends ChangeNotifier {
       String activeStreamUrl = await _resolveStreamUrlWithRetry(track);
 
       if (activeStreamUrl.isEmpty) {
+        _consecutiveFailures++;
         _playerState = PlayerState.stopped;
         _isBuffering = false;
         _updateMediaNotification();
         notifyListeners();
-        // Auto skip to next track after brief delay so broken URLs do not freeze player
-        Future.delayed(const Duration(milliseconds: 1200), () {
-          if (_currentTrack?.id == track.id && _playerState == PlayerState.stopped) {
-            next();
-          }
-        });
+        // Prevent infinite cascade skipping across entire playlist (stop after 3 failed tracks)
+        if (_consecutiveFailures < 3 && _playlist.length > 1) {
+          Future.delayed(const Duration(milliseconds: 2000), () {
+            if (_currentTrack?.id == track.id && _playerState == PlayerState.stopped) {
+              next();
+            }
+          });
+        } else {
+          _consecutiveFailures = 0;
+        }
         return;
       }
 
@@ -468,22 +504,38 @@ class AudioPlayerService extends ChangeNotifier {
           final retrySource = _buildAudioSource(retryUrl);
           await _activePlayer.play(retrySource);
         } else {
+          _consecutiveFailures++;
           _playerState = PlayerState.stopped;
           _isBuffering = false;
           notifyListeners();
-          Future.delayed(const Duration(milliseconds: 1200), () {
-            if (_currentTrack?.id == track.id && _playerState == PlayerState.stopped) {
-              next();
-            }
-          });
+          if (_consecutiveFailures < 3 && _playlist.length > 1) {
+            Future.delayed(const Duration(milliseconds: 2000), () {
+              if (_currentTrack?.id == track.id && _playerState == PlayerState.stopped) {
+                next();
+              }
+            });
+          } else {
+            _consecutiveFailures = 0;
+          }
           return;
         }
       }
 
+      // Successful playback resets consecutive failure counter
+      _consecutiveFailures = 0;
       _playerState = PlayerState.playing;
       _isBuffering = false;
       _updateMediaNotification();
       notifyListeners();
+
+      // Trim Silence at start if enabled and starting from beginning
+      if (_isSilenceTrimEnabled && !wasPlaying) {
+        Future.delayed(const Duration(milliseconds: 200), () {
+          if (_position == Duration.zero && _playerState == PlayerState.playing) {
+            _activePlayer.seek(const Duration(milliseconds: 350)).catchError((_) {});
+          }
+        });
+      }
 
       // Preload upcoming track into standby player
       _preloadNextTrack();
@@ -529,6 +581,10 @@ class AudioPlayerService extends ChangeNotifier {
 
     if (activeStreamUrl.contains('saavncdn.com') || track.id.startsWith('saavn_')) {
       _activeQualityBadge = '320 kbps AAC';
+    } else if (_streamingQuality == '320k' || _isLosslessEnabled) {
+      _activeQualityBadge = '320 kbps Hi-Res';
+    } else if (_streamingQuality == '128k') {
+      _activeQualityBadge = '128 kbps Eco';
     } else {
       _activeQualityBadge = '256 kbps AAC';
     }
@@ -552,6 +608,7 @@ class AudioPlayerService extends ChangeNotifier {
             track.id,
             songTitle: track.title,
             songArtist: track.artist,
+            quality: _streamingQuality,
           );
           if (directStream != null && directStream.isNotEmpty) {
             activeStreamUrl = directStream;
@@ -570,6 +627,7 @@ class AudioPlayerService extends ChangeNotifier {
               validHits.first.id,
               songTitle: track.title,
               songArtist: track.artist,
+              quality: _streamingQuality,
             );
             if (ytDirect != null && ytDirect.isNotEmpty) {
               activeStreamUrl = ytDirect;
@@ -610,14 +668,21 @@ class AudioPlayerService extends ChangeNotifier {
   }
 
   void _checkAndTriggerCrossfade(Duration pos) {
-    if (!_isSmartCrossfade || _isCrossfading || _duration <= const Duration(seconds: 15)) {
+    // Only trigger crossfade if:
+    // 1. Smart crossfade is enabled and not currently crossfading
+    // 2. Song duration is verified (> 35s) and position is past the first 15 seconds
+    // 3. Remaining duration is within crossfade window
+    if (!_isSmartCrossfade ||
+        _isCrossfading ||
+        _duration.inSeconds < 35 ||
+        pos.inSeconds < 15) {
       return;
     }
 
     final remaining = _duration - pos;
     if (remaining <= Duration(seconds: _crossfadeSeconds) && remaining > Duration.zero) {
       final nextTrack = _getNextTrackInQueue();
-      if (nextTrack != null) {
+      if (nextTrack != null && nextTrack.id != _currentTrack?.id) {
         _startCrossfadeToNext(nextTrack);
       }
     }
@@ -1386,7 +1451,31 @@ class AudioPlayerService extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> toggleSponsorBlock(bool val) async {
+    _isSponsorBlockEnabled = val;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('omni_sponsorblock_enabled', val);
+    if (!val) {
+      _currentSponsorSegments = [];
+    } else if (_currentTrack != null) {
+      SponsorBlockService().getSkipSegments(_currentTrack!.id).then((segs) {
+        _currentSponsorSegments = segs;
+        notifyListeners();
+      }).catchError((_) {});
+    }
+    notifyListeners();
+  }
+
   void _handleTrackCompleted() {
+    final now = DateTime.now();
+    // Debounce track completion to prevent duplicate/race skipping within 2 seconds
+    if (_lastCompletionHandled != null &&
+        now.difference(_lastCompletionHandled!).inMilliseconds < 2000) {
+      debugPrint('Debounced duplicate track completion event');
+      return;
+    }
+    _lastCompletionHandled = now;
+
     if (_isTransitioning) return;
     _isTransitioning = true;
 

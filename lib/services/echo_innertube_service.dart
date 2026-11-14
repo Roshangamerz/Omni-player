@@ -455,31 +455,54 @@ class EchoInnerTubeService {
   }
 
   // ─── 7. ECHO MUSIC INNERTUBE FAST RESPONSE PLAYER ENGINE ──────────────────
-  Future<String?> resolveStreamUrlDirect(String rawVideoId) async {
+  /// Extracts high-speed direct CDN streams using Echo Music's proven client hierarchy:
+  /// 1. VISIONOS (probed to serve 100% complete files without 1MiB throttle)
+  /// 2. ANDROID_VR 1.65.10 (Oculus Quest 3 whole-file stream)
+  /// 3. ANDROID (Android 14 gzip no-auth direct stream)
+  /// 4. IOS (last resort fallback)
+  Future<String?> resolveStreamUrlDirect(String rawVideoId, {String quality = 'auto'}) async {
     final videoId = rawVideoId.replaceAll('yt_', '').replaceAll('ytm_', '').trim();
     if (videoId.isEmpty) return null;
 
     final clients = [
-      {
-        'clientName': 'IOS',
-        'clientVersion': '21.03.1',
-        'clientId': '5',
-        'userAgent': 'com.google.ios.youtube/21.03.1 (iPhone16,2; U; CPU iOS 18_2 like Mac OS X;)',
-        'origin': 'https://www.youtube.com',
-      },
       {
         'clientName': 'VISIONOS',
         'clientVersion': '0.1',
         'clientId': '101',
         'userAgent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15',
         'origin': 'https://www.youtube.com',
+        'osName': 'visionOS',
+        'osVersion': '1.3.21O771',
+        'deviceMake': 'Apple',
+        'deviceModel': 'RealityDevice14,1',
       },
       {
         'clientName': 'ANDROID_VR',
         'clientVersion': '1.65.10',
         'clientId': '28',
-        'userAgent': 'com.google.android.apps.youtube.vr.oculus/1.65.10 (Linux; U; Android 12L; eureka-user Build/SQ3A.220605.009.A1) gzip',
+        'userAgent':
+            'com.google.android.apps.youtube.vr.oculus/1.65.10 (Linux; U; Android 12L; eureka-user Build/SQ3A.220605.009.A1) gzip',
         'origin': 'https://www.youtube.com',
+        'osName': 'Android',
+        'osVersion': '12L',
+        'deviceMake': 'Oculus',
+        'deviceModel': 'Quest 3',
+        'androidSdkVersion': '32',
+      },
+      {
+        'clientName': 'ANDROID',
+        'clientVersion': '21.03.38',
+        'clientId': '3',
+        'userAgent': 'com.google.android.youtube/21.03.38 (Linux; U; Android 14) gzip',
+        'origin': 'https://www.youtube.com',
+      },
+      {
+        'clientName': 'IOS',
+        'clientVersion': '21.03.1',
+        'clientId': '5',
+        'userAgent': 'com.google.ios.youtube/21.03.1 (iPhone16,2; U; CPU iOS 18_2 like Mac OS X;)',
+        'origin': 'https://www.youtube.com',
+        'osVersion': '18.2.22C152',
       },
     ];
 
@@ -504,6 +527,11 @@ class EchoInnerTubeService {
                     'clientVersion': c['clientVersion'],
                     'gl': _regionCode,
                     'hl': _languageCode,
+                    if (c['osName'] != null) 'osName': c['osName'],
+                    if (c['osVersion'] != null) 'osVersion': c['osVersion'],
+                    if (c['deviceMake'] != null) 'deviceMake': c['deviceMake'],
+                    if (c['deviceModel'] != null) 'deviceModel': c['deviceModel'],
+                    if (c['androidSdkVersion'] != null) 'androidSdkVersion': c['androidSdkVersion'],
                     if (_visitorData != null) 'visitorData': _visitorData,
                   },
                 },
@@ -512,36 +540,34 @@ class EchoInnerTubeService {
                 'racyCheckOk': true,
               }),
             )
-            .timeout(const Duration(milliseconds: 2200));
+            .timeout(const Duration(milliseconds: 2500));
 
         if (resp.statusCode == 200) {
           final json = jsonDecode(resp.body) as Map<String, dynamic>;
           final playStatus = json['playabilityStatus']?['status']?.toString();
           if (playStatus == 'OK') {
             final adaptive = json['streamingData']?['adaptiveFormats'] as List<dynamic>? ?? const [];
-            // 1. Prefer direct MP4/AAC (itag 140 / 139) with direct url
-            final directMp4 = adaptive.where((f) {
+            final progressive = json['streamingData']?['formats'] as List<dynamic>? ?? const [];
+            final allFormats = [...adaptive, ...progressive];
+
+            // Filter for playable audio formats with direct unthrottled CDN URLs
+            final audioFormats = allFormats.where((f) {
               final mime = (f['mimeType']?.toString() ?? '').toLowerCase();
               final url = f['url']?.toString() ?? '';
-              return (mime.contains('audio/mp4') || mime.contains('aac')) && url.isNotEmpty;
+              return (mime.contains('audio') || mime.contains('mp4')) && url.isNotEmpty;
             }).toList();
 
-            if (directMp4.isNotEmpty) {
-              directMp4.sort((a, b) => ((b['bitrate'] as num?) ?? 0).compareTo((a['bitrate'] as num?) ?? 0));
-              final url = directMp4.first['url']?.toString();
-              if (url != null && url.isNotEmpty) return url;
-            }
-
-            // 2. Direct Opus / WebM (itag 251 / 250)
-            final directWebm = adaptive.where((f) {
-              final mime = (f['mimeType']?.toString() ?? '').toLowerCase();
-              final url = f['url']?.toString() ?? '';
-              return mime.contains('audio') && url.isNotEmpty;
-            }).toList();
-
-            if (directWebm.isNotEmpty) {
-              directWebm.sort((a, b) => ((b['bitrate'] as num?) ?? 0).compareTo((a['bitrate'] as num?) ?? 0));
-              final url = directWebm.first['url']?.toString();
+            if (audioFormats.isNotEmpty) {
+              if (quality == '128k') {
+                audioFormats.sort((a, b) {
+                  final brA = (a['bitrate'] as num?)?.toInt() ?? 128000;
+                  final brB = (b['bitrate'] as num?)?.toInt() ?? 128000;
+                  return (brA - 128000).abs().compareTo((brB - 128000).abs());
+                });
+              } else {
+                audioFormats.sort((a, b) => ((b['bitrate'] as num?) ?? 0).compareTo((a['bitrate'] as num?) ?? 0));
+              }
+              final url = audioFormats.first['url']?.toString();
               if (url != null && url.isNotEmpty) return url;
             }
           }

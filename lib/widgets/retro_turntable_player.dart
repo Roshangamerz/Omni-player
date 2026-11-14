@@ -152,7 +152,6 @@ class _RetroTurntablePlayerState extends State<RetroTurntablePlayer>
     return LayoutBuilder(
       builder: (context, constraints) {
         final screenWidth = constraints.maxWidth;
-        final screenHeight = constraints.maxHeight;
 
         // Calculate dynamic turntable dimension
         final turntableSize = (screenWidth * 0.90).clamp(280.0, 420.0);

@@ -560,6 +560,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     onChanged: ps.toggleSilenceTrim,
                   ),
                   SwitchListTile(
+                    title: Text('SponsorBlock (Skip Intros & Promos)', style: TextStyle(color: theme.textPrimary)),
+                    subtitle: Text('Auto-skips non-music intros, sponsor segments & outros',
+                        style: TextStyle(color: theme.textSecondary, fontSize: 12)),
+                    value: ps.isSponsorBlockEnabled,
+                    activeThumbColor: theme.primary,
+                    onChanged: ps.toggleSponsorBlock,
+                  ),
+                  SwitchListTile(
                     title: Text('Lossless Audio Priority', style: TextStyle(color: theme.textPrimary)),
                     subtitle: Text('Prefers FLAC/ALAC sources when available',
                         style: TextStyle(color: theme.textSecondary, fontSize: 12)),

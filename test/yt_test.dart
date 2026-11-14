@@ -41,6 +41,7 @@ void main() {
         print(' -> Matched Saavn 320k: "${top.title}" by "${top.artist}"');
         print(' -> Stream URL: ${top.streamUrl.substring(0, 50)}...');
         expect(top.streamUrl.startsWith('http'), true);
+        print(' -> Match duration: ${sw.elapsedMilliseconds}ms');
       }
     }
   });

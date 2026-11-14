@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/echo_models.dart';
 import '../models/track.dart';
+import '../services/ai_playlist_service.dart';
 import '../services/audio_player_service.dart';
 import '../services/echo_innertube_service.dart';
 import '../theme/app_theme.dart';
@@ -57,6 +58,158 @@ class _ExploreScreenState extends State<ExploreScreen> with AutomaticKeepAliveCl
     );
   }
 
+  void _showAiPlaylistGenerator(BuildContext context) {
+    final promptCtrl = TextEditingController();
+    bool isGenerating = false;
+    final theme = widget.theme;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: theme.isDarkMode ? const Color(0xFF141418) : Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setModalState) => Padding(
+          padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.of(ctx).viewInsets.bottom + 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [theme.primary, theme.primary.withValues(alpha: 0.6)],
+                      ),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: const Icon(Icons.auto_awesome_rounded, color: Colors.black, size: 22),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'AI Mood Playlist Generator',
+                          style: TextStyle(
+                            color: theme.textPrimary,
+                            fontWeight: FontWeight.w900,
+                            fontSize: 18,
+                          ),
+                        ),
+                        Text(
+                          'Echo Music AI • Weather & Acoustic Vibe Matching',
+                          style: TextStyle(color: theme.textSecondary, fontSize: 12),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: promptCtrl,
+                style: TextStyle(color: theme.textPrimary),
+                decoration: InputDecoration(
+                  hintText: 'e.g. Rainy drive at midnight, cyberpunk workout, chill indie',
+                  hintStyle: TextStyle(color: theme.textSecondary.withValues(alpha: 0.6), fontSize: 13),
+                  filled: true,
+                  fillColor: theme.isDarkMode ? const Color(0xFF1C1C22) : const Color(0xFFF2F2F6),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 6,
+                children: [
+                  for (final mood in [
+                    '🌙 Late Night Lo-Fi',
+                    '⚡ Cyberpunk Synth',
+                    '☕ Coffee Shop Indie',
+                    '🌧️ Melancholic Rain',
+                    '🔥 High Energy Gym',
+                  ])
+                    ActionChip(
+                      label: Text(mood, style: const TextStyle(fontSize: 11)),
+                      backgroundColor: theme.isDarkMode ? const Color(0xFF1E1E26) : const Color(0xFFEAEAEE),
+                      onPressed: () {
+                        promptCtrl.text = mood;
+                      },
+                    ),
+                ],
+              ),
+              const SizedBox(height: 18),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: theme.primary,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  ),
+                  onPressed: isGenerating
+                      ? null
+                      : () async {
+                          final prompt = promptCtrl.text.trim();
+                          if (prompt.isEmpty) return;
+                          setModalState(() => isGenerating = true);
+                          try {
+                            final tracks = await AiPlaylistService().generatePlaylistFromPrompt(
+                              userPrompt: prompt,
+                            );
+                            if (ctx.mounted) Navigator.pop(ctx);
+                            if (tracks.isNotEmpty) {
+                              widget.playerService.playTrack(tracks.first, playlist: tracks);
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text('Playing AI Playlist: ${tracks.length} tracks')),
+                                );
+                              }
+                            } else {
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Could not generate tracks. Check connection.')),
+                                );
+                              }
+                            }
+                          } catch (e) {
+                            if (ctx.mounted) Navigator.pop(ctx);
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('AI Error: $e')),
+                              );
+                            }
+                          }
+                        },
+                  icon: isGenerating
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black),
+                        )
+                      : const Icon(Icons.play_arrow_rounded, color: Colors.black),
+                  label: Text(
+                    isGenerating ? 'Curating AI Playlist...' : 'Generate & Play',
+                    style: const TextStyle(color: Colors.black, fontWeight: FontWeight.w800),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     super.build(context);
@@ -86,6 +239,60 @@ class _ExploreScreenState extends State<ExploreScreen> with AutomaticKeepAliveCl
             ],
           ),
           const SizedBox(height: 12),
+          // Echo Music AI Mood Playlist Generator Banner
+          GestureDetector(
+            onTap: () => _showAiPlaylistGenerator(context),
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(20),
+                gradient: LinearGradient(
+                  colors: [
+                    theme.primary.withValues(alpha: 0.25),
+                    theme.primary.withValues(alpha: 0.08),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                border: Border.all(color: theme.primary.withValues(alpha: 0.3), width: 1.2),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: theme.primary,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.auto_awesome_rounded, color: Colors.black, size: 24),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Generate AI Mood Playlist',
+                          style: TextStyle(
+                            color: theme.textPrimary,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Custom mix matched to your vibe & weather',
+                          style: TextStyle(color: theme.textSecondary, fontSize: 12),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Icon(Icons.arrow_forward_ios_rounded, color: theme.primary, size: 16),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
           if (_loading)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 60),

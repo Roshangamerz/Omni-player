@@ -4,10 +4,25 @@ import 'package:omni_player/services/audio_player_service.dart';
 import 'package:omni_player/services/echo_innertube_service.dart';
 import 'package:omni_player/services/extension_manager_service.dart';
 import 'package:omni_player/services/uptime_service.dart';
+import 'package:omni_player/services/sponsorblock_service.dart';
+import 'package:flutter/services.dart';
 import 'package:omni_player/theme/app_theme.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  setUpAll(() {
+    const channels = [
+      'xyz.luan/audioplayers',
+      'xyz.luan/audioplayers.global',
+      'xyz.luan/audioplayers/events/global',
+      'com.omniplayer.music/media_notification',
+    ];
+    for (final channel in channels) {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(MethodChannel(channel), (MethodCall methodCall) async => 1);
+    }
+  });
   group('Echo Music reverse-engineered models & parsers', () {
     test('Track.parseLrc parses standard and enhanced word-by-word LRC', () {
       const lrc = '''
@@ -82,6 +97,22 @@ void main() {
     test('AudioPlayerService has apple player style as default and supports vinyl turntable', () {
       final ps = AudioPlayerService();
       expect(ps.playerStyle, 'apple'); // Apple Player UI default
+      expect(ps.isSponsorBlockEnabled, isTrue); // SponsorBlock auto-skip default
+    });
+
+    test('SponsorBlockSegment correctly identifies segment boundaries', () {
+      const seg = SponsorBlockSegment(
+        start: 0.0,
+        end: 15.5,
+        category: 'intro',
+        actionType: 'skip',
+        uuid: 'test_uuid_1',
+      );
+      expect(seg.containsSecond(0.0), isTrue);
+      expect(seg.containsSecond(10.0), isTrue);
+      expect(seg.containsSecond(15.49), isTrue);
+      expect(seg.containsSecond(15.5), isFalse);
+      expect(seg.containsSecond(20.0), isFalse);
     });
   });
 }
