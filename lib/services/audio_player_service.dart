@@ -82,6 +82,7 @@ class AudioPlayerService extends ChangeNotifier {
   int _crossfadeSeconds = 5;
   bool _isCrossfading = false;
   Timer? _crossfadeTimer;
+  double _playbackSpeed = 1.0;
 
   Color? _customPrimaryColor;
   Color? _customBgColor;
@@ -129,6 +130,7 @@ class AudioPlayerService extends ChangeNotifier {
   List<SponsorBlockSegment> get currentSponsorSegments => List.unmodifiable(_currentSponsorSegments);
   bool get isSmartCrossfade => _isSmartCrossfade;
   int get crossfadeSeconds => _crossfadeSeconds;
+  double get playbackSpeed => _playbackSpeed;
   bool get isCrossfading => _isCrossfading;
   Color? get customPrimaryColor => _customPrimaryColor;
   Color? get customBgColor => _customBgColor;
@@ -336,6 +338,7 @@ class AudioPlayerService extends ChangeNotifier {
       _isSponsorBlockEnabled = prefs.getBool('omni_sponsorblock_enabled') ?? true;
       _isSmartCrossfade = prefs.getBool('omni_smart_crossfade') ?? true;
       _crossfadeSeconds = prefs.getInt('omni_crossfade_seconds') ?? 5;
+      _playbackSpeed = prefs.getDouble('omni_playback_speed') ?? 1.0;
       _marvelHero = prefs.getString('omni_marvel_hero') ?? 'iron_man';
       _isMarvelJarvisHud = prefs.getBool('omni_marvel_hud') ?? true;
 
@@ -405,12 +408,24 @@ class AudioPlayerService extends ChangeNotifier {
     return nonMusic.any((kw) => lower.contains(kw));
   }
 
-  Future<void> _microFadeOut(AudioPlayer player) async {
+  Future<void> _microFadeOut(AudioPlayer player, {int durationMs = 120}) async {
     try {
-      const steps = 4;
+      const steps = 5;
+      final stepDelay = (durationMs / steps).round();
       for (int i = steps - 1; i >= 0; i--) {
         await player.setVolume((_volume * (i / steps)).clamp(0.0, 1.0));
-        await Future.delayed(const Duration(milliseconds: 20));
+        await Future.delayed(Duration(milliseconds: stepDelay));
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _microFadeIn(AudioPlayer player, {int durationMs = 180}) async {
+    try {
+      const steps = 6;
+      final stepDelay = (durationMs / steps).round();
+      for (int i = 1; i <= steps; i++) {
+        await player.setVolume((_volume * (i / steps)).clamp(0.0, 1.0));
+        await Future.delayed(Duration(milliseconds: stepDelay));
       }
     } catch (_) {}
   }
@@ -493,9 +508,19 @@ class AudioPlayerService extends ChangeNotifier {
 
       Source audioSource = _buildAudioSource(activeStreamUrl);
 
-      await _activePlayer.setVolume(_volume.clamp(0.0, 1.0));
+      if (wasPlaying) {
+        await _activePlayer.setVolume(0.0);
+      } else {
+        await _activePlayer.setVolume(_volume.clamp(0.0, 1.0));
+      }
       try {
         await _activePlayer.play(audioSource);
+        if (_playbackSpeed != 1.0) {
+          await _activePlayer.setPlaybackRate(_playbackSpeed).catchError((_) {});
+        }
+        if (wasPlaying) {
+          _microFadeIn(_activePlayer, durationMs: 160);
+        }
       } catch (playErr) {
         debugPrint('Primary stream play failed, clearing cache and retrying: $playErr');
         AudioStreamService().clearCacheForId(track.id);
@@ -503,6 +528,12 @@ class AudioPlayerService extends ChangeNotifier {
         if (retryUrl.isNotEmpty) {
           final retrySource = _buildAudioSource(retryUrl);
           await _activePlayer.play(retrySource);
+          if (_playbackSpeed != 1.0) {
+            await _activePlayer.setPlaybackRate(_playbackSpeed).catchError((_) {});
+          }
+          if (wasPlaying) {
+            _microFadeIn(_activePlayer, durationMs: 160);
+          }
         } else {
           _consecutiveFailures++;
           _playerState = PlayerState.stopped;
@@ -680,6 +711,11 @@ class AudioPlayerService extends ChangeNotifier {
     }
 
     final remaining = _duration - pos;
+    // Echo Adaptive Pre-Arming: warm up standby player ahead of crossfade
+    if (remaining <= Duration(seconds: _crossfadeSeconds + 12) && _preloadedNextTrack == null) {
+      _preloadNextTrack();
+    }
+
     if (remaining <= Duration(seconds: _crossfadeSeconds) && remaining > Duration.zero) {
       final nextTrack = _getNextTrackInQueue();
       if (nextTrack != null && nextTrack.id != _currentTrack?.id) {
@@ -718,7 +754,12 @@ class AudioPlayerService extends ChangeNotifier {
     try {
       String streamUrl = nextTrack.streamUrl;
       if (streamUrl.isEmpty || nextTrack.id.startsWith('yt_') || nextTrack.id.startsWith('sp_')) {
-        final resolved = await AudioStreamService().resolveStreamUrl(nextTrack.id);
+        final resolved = await AudioStreamService().resolveStreamUrl(
+          nextTrack.id,
+          songTitle: nextTrack.title,
+          songArtist: nextTrack.artist,
+          quality: _streamingQuality,
+        );
         if (resolved != null && resolved.isNotEmpty) {
           streamUrl = resolved;
         }
@@ -778,6 +819,9 @@ class AudioPlayerService extends ChangeNotifier {
     await oldActive.stop();
     await oldActive.setVolume(_volume.clamp(0.0, 1.0));
     await newActive.setVolume(_volume.clamp(0.0, 1.0));
+    if (_playbackSpeed != 1.0) {
+      await _activePlayer.setPlaybackRate(_playbackSpeed).catchError((_) {});
+    }
 
     _currentTrack = nextTrack;
     _currentIndex = _playlist.indexWhere((t) => t.id == nextTrack.id);
@@ -805,7 +849,12 @@ class AudioPlayerService extends ChangeNotifier {
     try {
       String streamUrl = nextTrack.streamUrl;
       if (streamUrl.isEmpty || nextTrack.id.startsWith('yt_') || nextTrack.id.startsWith('sp_')) {
-        final resolved = await AudioStreamService().resolveStreamUrl(nextTrack.id);
+        final resolved = await AudioStreamService().resolveStreamUrl(
+          nextTrack.id,
+          songTitle: nextTrack.title,
+          songArtist: nextTrack.artist,
+          quality: _streamingQuality,
+        );
         if (resolved != null && resolved.isNotEmpty) {
           streamUrl = resolved;
         }
@@ -881,10 +930,14 @@ class AudioPlayerService extends ChangeNotifier {
   }
 
   Future<void> pause() async {
+    if (isPlaying) {
+      await _microFadeOut(_activePlayer, durationMs: 140);
+    }
     await _activePlayer.pause();
     if (_isCrossfading) {
       await _standbyPlayer.pause();
     }
+    await _activePlayer.setVolume(_volume.clamp(0.0, 1.0)).catchError((_) {});
     _playerState = PlayerState.paused;
     _updateMediaNotification();
     if (!_isHandlingRemoteSync) {
@@ -903,7 +956,11 @@ class AudioPlayerService extends ChangeNotifier {
       await playTrack(_playlist.first, playlist: _playlist);
       return;
     }
+    await _activePlayer.setVolume(0.0).catchError((_) {});
     await _activePlayer.resume();
+    if (_playbackSpeed != 1.0) {
+      await _activePlayer.setPlaybackRate(_playbackSpeed).catchError((_) {});
+    }
     if (_isCrossfading) {
       await _standbyPlayer.resume();
     }
@@ -918,6 +975,7 @@ class AudioPlayerService extends ChangeNotifier {
       );
     }
     notifyListeners();
+    await _microFadeIn(_activePlayer, durationMs: 180);
   }
 
   Future<void> seek(Duration newPosition) async {
@@ -973,6 +1031,10 @@ class AudioPlayerService extends ChangeNotifier {
       return;
     }
 
+    if (isPlaying) {
+      await _microFadeOut(_activePlayer, durationMs: 120);
+    }
+
     int nextIndex;
     if (_isShuffle) {
       nextIndex = Random().nextInt(_playlist.length);
@@ -997,6 +1059,10 @@ class AudioPlayerService extends ChangeNotifier {
     if (_position.inSeconds > 3) {
       await seek(Duration.zero);
       return;
+    }
+
+    if (isPlaying) {
+      await _microFadeOut(_activePlayer, durationMs: 120);
     }
 
     int prevIndex = _currentIndex - 1;
@@ -1356,6 +1422,7 @@ class AudioPlayerService extends ChangeNotifier {
     _sleepTimer = null;
     if (duration == null || duration <= Duration.zero) {
       _sleepTimerRemaining = null;
+      _activePlayer.setVolume(_volume.clamp(0.0, 1.0)).catchError((_) {});
       notifyListeners();
       return;
     }
@@ -1367,12 +1434,26 @@ class AudioPlayerService extends ChangeNotifier {
         _sleepTimer = null;
         _sleepTimerRemaining = null;
         pause();
+        _activePlayer.setVolume(_volume.clamp(0.0, 1.0)).catchError((_) {});
         notifyListeners();
       } else {
         _sleepTimerRemaining = _sleepTimerRemaining! - const Duration(seconds: 1);
+        final remSecs = _sleepTimerRemaining!.inSeconds;
+        if (remSecs <= 10 && remSecs > 0) {
+          final rampVol = (_volume * (remSecs / 10.0)).clamp(0.0, 1.0);
+          _activePlayer.setVolume(rampVol).catchError((_) {});
+        }
         notifyListeners();
       }
     });
+  }
+
+  Future<void> setPlaybackSpeed(double speed) async {
+    _playbackSpeed = speed.clamp(0.5, 2.0);
+    await _activePlayer.setPlaybackRate(_playbackSpeed).catchError((_) {});
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble('omni_playback_speed', _playbackSpeed);
+    notifyListeners();
   }
 
   void addToQueueNext(Track track) {

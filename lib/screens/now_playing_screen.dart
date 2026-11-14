@@ -297,6 +297,261 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
     );
   }
 
+  void _showAudioSettingsSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: const Color(0xFF141418),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheetState) {
+          final s = widget.playerService;
+          return Padding(
+            padding: const EdgeInsets.fromLTRB(20, 14, 20, 32),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.white24,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Icon(Icons.tune_rounded, color: widget.theme.primary, size: 22),
+                    const SizedBox(width: 10),
+                    const Text(
+                      'Audio & Playback Controls',
+                      style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w800),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+
+                // Playback Speed
+                const Text(
+                  'PLAYBACK SPEED',
+                  style: TextStyle(color: Colors.white54, fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1.0),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [0.75, 1.0, 1.25, 1.5, 2.0].map((spd) {
+                    final isSel = (s.playbackSpeed - spd).abs() < 0.05;
+                    return ChoiceChip(
+                      label: Text('${spd}x'),
+                      selected: isSel,
+                      selectedColor: widget.theme.primary,
+                      backgroundColor: Colors.white10,
+                      labelStyle: TextStyle(
+                        color: isSel ? Colors.black : Colors.white,
+                        fontWeight: FontWeight.w700,
+                      ),
+                      onSelected: (_) {
+                        s.setPlaybackSpeed(spd);
+                        setSheetState(() {});
+                      },
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 20),
+
+                // DJ Beat Crossfade
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'DJ Seamless Crossfade',
+                          style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w700),
+                        ),
+                        Text(
+                          s.isSmartCrossfade ? '${s.crossfadeSeconds}s equal-power fade' : 'Disabled',
+                          style: const TextStyle(color: Colors.white54, fontSize: 12),
+                        ),
+                      ],
+                    ),
+                    Switch(
+                      value: s.isSmartCrossfade,
+                      activeThumbColor: widget.theme.primary,
+                      onChanged: (v) {
+                        s.toggleSmartCrossfade(v);
+                        setSheetState(() {});
+                      },
+                    ),
+                  ],
+                ),
+                if (s.isSmartCrossfade) ...[
+                  const SizedBox(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [3, 5, 8, 10, 12].map((sec) {
+                      final isSel = s.crossfadeSeconds == sec;
+                      return ChoiceChip(
+                        label: Text('${sec}s'),
+                        selected: isSel,
+                        selectedColor: widget.theme.primary,
+                        backgroundColor: Colors.white10,
+                        labelStyle: TextStyle(
+                          color: isSel ? Colors.black : Colors.white,
+                          fontWeight: FontWeight.w700,
+                        ),
+                        onSelected: (_) {
+                          s.setCrossfadeSeconds(sec);
+                          setSheetState(() {});
+                        },
+                      );
+                    }).toList(),
+                  ),
+                ],
+                const SizedBox(height: 20),
+
+                // Audio Quality
+                const Text(
+                  'STREAMING QUALITY',
+                  style: TextStyle(color: Colors.white54, fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1.0),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    {'key': 'auto', 'label': 'Auto'},
+                    {'key': '320k', 'label': '320k FLAC'},
+                    {'key': '256k', 'label': '256k AAC'},
+                    {'key': '128k', 'label': '128k Eco'},
+                  ].map((q) {
+                    final isSel = s.streamingQuality == q['key'];
+                    return ChoiceChip(
+                      label: Text(q['label']!),
+                      selected: isSel,
+                      selectedColor: widget.theme.primary,
+                      backgroundColor: Colors.white10,
+                      labelStyle: TextStyle(
+                        color: isSel ? Colors.black : Colors.white,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 12,
+                      ),
+                      onSelected: (_) {
+                        s.setStreamingQuality(q['key']!);
+                        setSheetState(() {});
+                      },
+                    );
+                  }).toList(),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildPlaybackBadges() {
+    final s = widget.playerService;
+    return GestureDetector(
+      onTap: _showAudioSettingsSheet,
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 8),
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.white12),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.graphic_eq_rounded, size: 12, color: widget.theme.primary),
+                    const SizedBox(width: 4),
+                    Text(
+                      s.activeQualityBadge,
+                      style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w700),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 6),
+              if (s.isSmartCrossfade)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.white12),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.auto_awesome_rounded, size: 11, color: widget.theme.primary),
+                      const SizedBox(width: 4),
+                      Text(
+                        '${s.crossfadeSeconds}s Fade',
+                        style: const TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.w700),
+                      ),
+                    ],
+                  ),
+                ),
+              if (s.playbackSpeed != 1.0) ...[
+                const SizedBox(width: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: widget.theme.primary.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: widget.theme.primary.withValues(alpha: 0.4)),
+                  ),
+                  child: Text(
+                    '${s.playbackSpeed}x Speed',
+                    style: TextStyle(color: widget.theme.primary, fontSize: 10, fontWeight: FontWeight.w800),
+                  ),
+                ),
+              ],
+              if (s.currentSponsorSegments.isNotEmpty) ...[
+                const SizedBox(width: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: Colors.amber.withValues(alpha: 0.18),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.amber.withValues(alpha: 0.4)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.bolt_rounded, size: 12, color: Colors.amber),
+                      const SizedBox(width: 3),
+                      Text(
+                        'SponsorBlock (${s.currentSponsorSegments.length})',
+                        style: const TextStyle(color: Colors.amber, fontSize: 10, fontWeight: FontWeight.w700),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final track = widget.playerService.currentTrack;
@@ -451,23 +706,27 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
             onPressed: () => Navigator.pop(context),
           ),
           Expanded(
-            child: Column(
-              children: [
-                Text(
-                  widget.playerService.activeQualityBadge,
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.78),
-                    fontSize: 11,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 1.0,
-                  ),
-                ),
-                if (widget.playerService.sleepTimerRemaining != null)
+            child: GestureDetector(
+              onTap: _showAudioSettingsSheet,
+              behavior: HitTestBehavior.opaque,
+              child: Column(
+                children: [
                   Text(
-                    'Sleep ${_fmt(widget.playerService.sleepTimerRemaining!)}',
-                    style: TextStyle(color: widget.theme.primary, fontSize: 11),
+                    widget.playerService.activeQualityBadge,
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.78),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 1.0,
+                    ),
                   ),
-              ],
+                  if (widget.playerService.sleepTimerRemaining != null)
+                    Text(
+                      'Sleep ${_fmt(widget.playerService.sleepTimerRemaining!)}',
+                      style: TextStyle(color: widget.theme.primary, fontSize: 11),
+                    ),
+                ],
+              ),
             ),
           ),
           IconButton(
@@ -599,7 +858,8 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
                   ),
                 ],
               ),
-              const SizedBox(height: 18),
+              const SizedBox(height: 14),
+              _buildPlaybackBadges(),
               _buildCapsuleSlider(dur, pos, fraction),
               const SizedBox(height: 16),
               Row(
@@ -721,7 +981,8 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 18),
+          const SizedBox(height: 14),
+          _buildPlaybackBadges(),
           _buildCapsuleSlider(dur, pos, fraction),
           const SizedBox(height: 18),
           Row(
@@ -1086,6 +1347,11 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
                 : Colors.white70,
           ),
           onPressed: _showSleepTimerDialog,
+        ),
+        IconButton(
+          tooltip: 'Playback Controls & FX',
+          icon: const Icon(Icons.tune_rounded, color: Colors.white),
+          onPressed: _showAudioSettingsSheet,
         ),
         IconButton(
           tooltip: 'Up Next Queue',

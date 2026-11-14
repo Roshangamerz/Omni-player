@@ -228,9 +228,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 onPressed: () async {
                   final json = await BackupService.exportBackupJson();
                   await Clipboard.setData(ClipboardData(text: json));
-                  if (ctx.mounted) {
+                  if (ctx.mounted && mounted) {
                     Navigator.pop(ctx);
-                    ScaffoldMessenger.of(context).showSnackBar(
+                    ScaffoldMessenger.of(ctx).showSnackBar(
                       const SnackBar(content: Text('Full backup JSON copied to clipboard!')),
                     );
                   }
@@ -257,15 +257,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
             onPressed: () async {
               try {
                 final count = await BackupService.importBackupJson(importCtrl.text.trim());
-                if (ctx.mounted) {
+                if (ctx.mounted && mounted) {
                   Navigator.pop(ctx);
-                  ScaffoldMessenger.of(context).showSnackBar(
+                  ScaffoldMessenger.of(ctx).showSnackBar(
                     SnackBar(content: Text('Restored $count sections. Restart app to apply.')),
                   );
                 }
               } catch (e) {
-                if (ctx.mounted) {
-                  ScaffoldMessenger.of(context)
+                if (ctx.mounted && mounted) {
+                  ScaffoldMessenger.of(ctx)
                       .showSnackBar(SnackBar(content: Text('Import failed: $e')));
                 }
               }
@@ -502,6 +502,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ],
                       onChanged: (v) {
                         if (v != null) ps.setStreamingQuality(v);
+                      },
+                    ),
+                  ),
+                  ListTile(
+                    leading: Icon(Icons.speed_rounded, color: theme.primary),
+                    title: Text('Default Playback Speed', style: TextStyle(color: theme.textPrimary)),
+                    subtitle: Text('${ps.playbackSpeed}x speed rate',
+                        style: TextStyle(color: theme.textSecondary, fontSize: 12)),
+                    trailing: DropdownButton<double>(
+                      value: [0.75, 1.0, 1.25, 1.5, 2.0].contains(ps.playbackSpeed) ? ps.playbackSpeed : 1.0,
+                      underline: const SizedBox.shrink(),
+                      dropdownColor: theme.isDarkMode ? const Color(0xFF1A1A22) : Colors.white,
+                      style: TextStyle(color: theme.textPrimary, fontSize: 13, fontWeight: FontWeight.w700),
+                      items: const [
+                        DropdownMenuItem(value: 0.75, child: Text('0.75x')),
+                        DropdownMenuItem(value: 1.0, child: Text('1.0x (Normal)')),
+                        DropdownMenuItem(value: 1.25, child: Text('1.25x')),
+                        DropdownMenuItem(value: 1.5, child: Text('1.5x')),
+                        DropdownMenuItem(value: 2.0, child: Text('2.0x')),
+                      ],
+                      onChanged: (v) {
+                        if (v != null) ps.setPlaybackSpeed(v);
                       },
                     ),
                   ),
