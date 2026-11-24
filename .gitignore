@@ -64,3 +64,9 @@ android/app/build/
 android/.gradle/
 
 # IDE
+
+# Native shared libraries and ONNX models
+*.so
+*.onnx
+omni_native/Screenshots/
+
