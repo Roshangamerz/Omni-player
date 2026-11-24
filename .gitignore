@@ -70,3 +70,8 @@ android/.gradle/
 *.onnx
 omni_native/Screenshots/
 
+
+*.tar.gz
+*.zip
+omni_native/assets/LMEB.gif
+
