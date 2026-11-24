@@ -75,3 +75,16 @@ omni_native/Screenshots/
 *.zip
 omni_native/assets/LMEB.gif
 
+
+omni_native/assets/
+omni_native/app/src/main/res/font/
+omni_native/app/src/main/res/drawable-hdpi/
+omni_native/app/src/main/res/drawable-mdpi/
+omni_native/app/src/main/res/drawable-nodpi/
+omni_native/app/src/main/res/drawable-xhdpi/
+omni_native/app/src/main/res/drawable-xxhdpi/
+omni_native/app/src/main/res/drawable-xxxhdpi/
+omni_native/app/src/main/res/mipmap-*/*_icon*
+omni_native/app/src/main/res/*_icon*
+omni_native/app/src/main/cpp/
+
