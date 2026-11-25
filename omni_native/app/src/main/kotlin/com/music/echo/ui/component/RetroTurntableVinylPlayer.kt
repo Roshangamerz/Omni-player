@@ -168,26 +168,42 @@ fun RetroTurntableVinylPlayer(
               ),
               center = center
             )
-            val grooveRatios = floatArrayOf(0.96f, 0.90f, 0.84f, 0.78f, 0.72f, 0.66f, 0.60f, 0.54f)
-            val grooveColor = Color.White.copy(alpha = 0.12f)
-            val grooveStroke = Stroke(width = 1.6f)
-            val outerEdgeStroke = Stroke(width = 4f)
-            val tintColor = Color.Black.copy(alpha = 0.30f)
+            val grooveRatios = floatArrayOf(0.96f, 0.91f, 0.86f, 0.81f, 0.76f, 0.71f, 0.66f, 0.61f, 0.56f, 0.51f)
+            val darkGrooveColor = Color.Black.copy(alpha = 0.48f)
+            val darkGrooveStroke = Stroke(width = 2.2f)
+            val vintageHighlightColor = Color(0xFFD7C4A3).copy(alpha = 0.07f)
+            val vintageHighlightStroke = Stroke(width = 1.0f)
+            val outerEdgeStroke = Stroke(width = 5f)
+            // Warm vintage dark sepia-charcoal vinyl tint + subtle edge vignette
+            val vintageVignette = Brush.radialGradient(
+              colors = listOf(
+                Color(0xFF1A140E).copy(alpha = 0.22f),
+                Color(0xFF0E0C0A).copy(alpha = 0.42f)
+              ),
+              center = center,
+              radius = radius
+            )
 
             onDrawBehind {
-              drawCircle(color = tintColor, radius = radius, center = center)
+              drawCircle(brush = vintageVignette, radius = radius, center = center)
               for (gRatio in grooveRatios) {
                 drawCircle(
-                  color = grooveColor,
+                  color = darkGrooveColor,
                   radius = radius * gRatio,
                   center = center,
-                  style = grooveStroke
+                  style = darkGrooveStroke
+                )
+                drawCircle(
+                  color = vintageHighlightColor,
+                  radius = (radius * gRatio) - 1.5f,
+                  center = center,
+                  style = vintageHighlightStroke
                 )
               }
               drawCircle(brush = sheenBrush, radius = radius, center = center)
               drawCircle(
-                color = Color(0xFF0A0B0E),
-                radius = radius - 2f,
+                color = Color(0xFF08090C),
+                radius = radius - 2.5f,
                 center = center,
                 style = outerEdgeStroke
               )
@@ -195,13 +211,14 @@ fun RetroTurntableVinylPlayer(
           }
       )
 
-      // Signature Red Inner Ring & Metallic Spindle Center Hole
+      // Solid Dark Center Label (cuts image inside the red ring) & Metallic Spindle Center Hole
       val labelDiameter = vinylDiameter * 0.44f
       Box(
         modifier = Modifier
           .size(labelDiameter)
           .align(Alignment.Center)
           .clip(CircleShape)
+          .background(Color(0xFF0D0E12))
           .border(4.5.dp, Color(0xFFD32F2F), CircleShape),
         contentAlignment = Alignment.Center
       ) {
@@ -308,26 +325,7 @@ fun RetroTurntableVinylPlayer(
       }
     }
 
-    // 3. Yellow Looping Cable (Cached Path)
-    Spacer(
-      modifier = Modifier
-        .align(Alignment.TopEnd)
-        .padding(end = 40.dp, top = 20.dp)
-        .size(48.dp, 28.dp)
-        .drawWithCache {
-          val w = size.width
-          val h = size.height
-          val path = Path().apply {
-            moveTo(0f, h)
-            cubicTo(w * 0.2f, 0f, w * 0.8f, 0f, w, h)
-          }
-          val stroke = Stroke(width = 6f, cap = StrokeCap.Round)
-          val cableColor = Color(0xFFFFB800)
-          onDrawBehind {
-            drawPath(path = path, color = cableColor, style = stroke)
-          }
-        }
-    )
+
 
     // 4. Tone Arm (Pivot and Stylus Tracking on Record)
     val armBoxSize = playerSize * 0.42f

@@ -1412,12 +1412,12 @@ fun BottomSheetPlayer(
                     model =
                       ImageRequest.Builder(context)
                         .data(thumbnailUrl)
-                        .size(128, 128)
+                        .size(360, 360)
                         .allowHardware(false)
                         .build(),
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize().blur(64.dp),
+                    modifier = Modifier.fillMaxSize().blur(14.dp),
                   )
 
                   val rotatingVinyl by rememberPreference(echo.music.iad1tya.constants.RotatingThumbnailKey, defaultValue = true)
