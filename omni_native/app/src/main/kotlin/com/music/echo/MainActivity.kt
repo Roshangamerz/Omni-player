@@ -772,7 +772,7 @@ class MainActivity : ComponentActivity() {
     ) {
       val hapticHelper = rememberHapticHelper()
 
-      if (showUpdateDialog) {
+      if (false && showUpdateDialog) {
         echo.music.iad1tya.echomusic.component.UpdateAvailableDialog(
           version = availableUpdateVersion,
           changelog = availableUpdateChangelog,
@@ -780,7 +780,7 @@ class MainActivity : ComponentActivity() {
           onDismiss = { showUpdateDialog = false },
         )
       } else {
-        whatsNewInfo?.let { info ->
+        if (false) whatsNewInfo?.let { info ->
           echo.music.iad1tya.echomusic.updater.WhatsNewDialog(
             version = BuildConfig.VERSION_NAME,
             info = info,
@@ -1129,7 +1129,9 @@ class MainActivity : ComponentActivity() {
           val prefs = context.dataStore.data.first()
           val lastOpened = prefs[echo.music.iad1tya.constants.LastOpenedVersionCodeKey] ?: -1
           if (lastOpened < BuildConfig.VERSION_CODE) {
-            showWelcomeDialog = true
+            context.dataStore.edit {
+              it[echo.music.iad1tya.constants.LastOpenedVersionCodeKey] = BuildConfig.VERSION_CODE
+            }
           }
         }
 
@@ -2036,7 +2038,7 @@ class MainActivity : ComponentActivity() {
         val videoId =
           when {
             path == "watch" -> uri.getQueryParameter("v")
-            uri.host == "youtu.be" || uri.host == "share.echomusic.fun" ->
+            uri.host == "youtu.be" || uri.host == "music.youtube.com" ->
               uri.pathSegments.firstOrNull()
             else -> null
           }

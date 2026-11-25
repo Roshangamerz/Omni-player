@@ -345,7 +345,7 @@ fun UpdateScreen(navController: NavHostController) {
                     } else {
                       val urlToDownload =
                         currentStatus.apkUrl
-                          ?: "https://github.com/OmniPlayerApp/Echo-Music/releases/download/${currentStatus.version}/echomusic.apk"
+                          ?: "https://github.com/Roshangamerz/Omni-player/releases/download/${currentStatus.version}/OmniPlayer-Native.apk"
 
                       val constraints =
                         Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()
@@ -694,7 +694,7 @@ suspend fun checkForUpdate(
         try {
           val changelogUrl =
             URL(
-              "https://github.com/OmniPlayerApp/Echo-Music/releases/download/$tagWithPrefix/changelog.json",
+              "https://github.com/Roshangamerz/Omni-player/releases/download/$tagWithPrefix/changelog.json",
             )
           val changelogJson = changelogUrl.openStream().bufferedReader().use { it.readText() }
           val changelogData = JSONObject(changelogJson)
@@ -836,7 +836,7 @@ suspend fun fetchChangelogForVersion(currentVersion: String): WhatsNewInfo? =
       try {
         val changelogJson =
           openTimedStream(
-              "https://github.com/OmniPlayerApp/Echo-Music/releases/download/$tag/changelog.json",
+              "https://github.com/Roshangamerz/Omni-player/releases/download/$tag/changelog.json",
             )
             .bufferedReader()
             .use { it.readText() }

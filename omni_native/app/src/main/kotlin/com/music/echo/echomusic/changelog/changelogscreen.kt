@@ -131,9 +131,9 @@ fun ChangelogScreen(
           }
         } else {
           val changelogUrl =
-            URL("https://github.com/OmniPlayerApp/Echo-Music/releases/download/$tag/changelog.json")
+            URL("https://github.com/Roshangamerz/Omni-player/releases/download/$tag/changelog.json")
           val connection = changelogUrl.openConnection() as HttpURLConnection
-          connection.setRequestProperty("User-Agent", "echomusic-Changelog-App")
+          connection.setRequestProperty("User-Agent", "omniplayer-Changelog-App")
           connection.setRequestProperty("Accept", "application/json")
 
           if (connection.responseCode == 200) {
@@ -209,7 +209,7 @@ fun ChangelogScreen(
       try {
         val releasesUrl = URL("https://api.github.com/repos/OmniPlayerApp/Echo-Music/releases")
         val connection = releasesUrl.openConnection() as HttpURLConnection
-        connection.setRequestProperty("User-Agent", "echomusic-Changelog-App")
+        connection.setRequestProperty("User-Agent", "omniplayer-Changelog-App")
         connection.setRequestProperty("Accept", "application/vnd.github+json")
 
         if (connection.responseCode == 200) {

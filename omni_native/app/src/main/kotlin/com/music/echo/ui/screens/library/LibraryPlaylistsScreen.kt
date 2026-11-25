@@ -172,8 +172,8 @@ fun LibraryPlaylistsScreen(
 
   val (ytmSync) = rememberPreference(YtmSyncKey, true)
 
-  LaunchedEffect(Unit) {
-    if (ytmSync) {
+  LaunchedEffect(ytmSync, innerTubeCookie) {
+    if (ytmSync && isLoggedIn) {
       withContext(Dispatchers.IO) { viewModel.sync() }
     }
   }

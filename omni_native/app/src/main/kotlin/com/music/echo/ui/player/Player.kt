@@ -1417,12 +1417,13 @@ fun BottomSheetPlayer(
                         .build(),
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize().blur(150.dp),
+                    modifier = Modifier.fillMaxSize().blur(64.dp),
                   )
 
+                  val rotatingVinyl by rememberPreference(echo.music.iad1tya.constants.RotatingThumbnailKey, defaultValue = true)
                   val clearArtworkAlpha by
                     animateFloatAsState(
-                      targetValue = if (showInlineLyrics) 0f else 1f,
+                      targetValue = if (showInlineLyrics || rotatingVinyl) 0f else 1f,
                       animationSpec = tween(500),
                       label = "clearArtworkAlpha",
                     )
@@ -1560,7 +1561,7 @@ fun BottomSheetPlayer(
                     contentScale = ContentScale.Crop,
                     colorFilter = colorFilter,
                     modifier =
-                      Modifier.fillMaxSize().blur(100.dp).graphicsLayer {
+                      Modifier.fillMaxSize().blur(48.dp).graphicsLayer {
                         rotationZ = anchorRotation
                       },
                   )
@@ -1577,7 +1578,7 @@ fun BottomSheetPlayer(
                     colorFilter = colorFilter,
                     alignment = Alignment.TopStart,
                     modifier =
-                      Modifier.fillMaxSize().blur(120.dp).graphicsLayer {
+                      Modifier.fillMaxSize().blur(56.dp).graphicsLayer {
                         rotationZ = fastRotation
                         alpha = 0.6f
                       },
@@ -1595,7 +1596,7 @@ fun BottomSheetPlayer(
                     colorFilter = colorFilter,
                     alignment = Alignment.BottomEnd,
                     modifier =
-                      Modifier.fillMaxSize().blur(120.dp).graphicsLayer {
+                      Modifier.fillMaxSize().blur(56.dp).graphicsLayer {
                         rotationZ = slowRotation
                         alpha = 0.5f
                       },

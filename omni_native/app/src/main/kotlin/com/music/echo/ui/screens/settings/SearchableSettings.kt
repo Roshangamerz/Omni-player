@@ -2175,7 +2175,7 @@ fun getAllSearchableSettings(): List<SearchableSetting> {
         ),
         SearchableSetting(
           "High Quality (320kbps) Music",
-          "Visit 320kbps.echomusic.fun for setup guide",
+          "Visit omniplayer.app for setup guide",
           "Extensions",
           "settings/extensions",
         ),

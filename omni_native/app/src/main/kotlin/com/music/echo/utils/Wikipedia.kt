@@ -71,7 +71,7 @@ object Wikipedia {
             "https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=$enc&utf8=&format=json",
           )
         val conn = url.openConnection() as java.net.HttpURLConnection
-        conn.setRequestProperty("User-Agent", "EchoMusic/1.0 (Android; support@omniplayer.app)")
+        conn.setRequestProperty("User-Agent", "OmniPlayer/1.4.8 (Android; support@omniplayer.app)")
         conn.connectTimeout = 4000
         conn.readTimeout = 4000
         val text = conn.inputStream.bufferedReader().use { it.readText() }

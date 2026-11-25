@@ -295,8 +295,8 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
 
   @Volatile private var isBitPerfectEnabled = false
 
-  private var crossfadeEnabled = false
-  private var crossfadeDuration = 5000f
+  private var crossfadeEnabled = true
+  private var crossfadeDuration = 8000f
   private var crossfadeGapless = true
   private var crossfadeTriggerJob: Job? = null
   private val preArmManager by lazy {
@@ -1218,7 +1218,7 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
           it[SkipSilenceKey]
         } catch (e: Exception) {
           null
-        }) ?: false) to
+        }) ?: true) to
           ((try {
             it[SkipSilenceInstantKey]
           } catch (e: Exception) {
@@ -1283,7 +1283,7 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
             it[CrossfadeEnabledKey]
           } catch (e: Exception) {
             null
-          }) ?: false
+          }) ?: true
         },
       ) { offloadPref, crossfadeEnabled ->
         if (crossfadeEnabled) false else offloadPref
@@ -1297,8 +1297,8 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
     combine(
         dataStore.data.map { prefs ->
           Triple(
-            prefs[CrossfadeEnabledKey] ?: false,
-            prefs[CrossfadeDurationKey] ?: 5f,
+            prefs[CrossfadeEnabledKey] ?: true,
+            prefs[CrossfadeDurationKey] ?: 8f,
             prefs[CrossfadeGaplessKey] ?: true,
           )
         },
@@ -1858,7 +1858,7 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
     val stereoWidener = StereoWidenerAudioProcessor()
 
     runBlocking {
-      val skipSilence = dataStore.get(SkipSilenceKey, false)
+      val skipSilence = dataStore.get(SkipSilenceKey, true)
       val instantSkip = dataStore.get(SkipSilenceInstantKey, false)
       silenceProcessor.instantModeEnabled = skipSilence && instantSkip
       stereoWidener.width = if (dataStore.get(SpatialAudioKey, false)) SPATIAL_AUDIO_WIDTH else 1f
@@ -1903,9 +1903,9 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
     player.apply {
       runBlocking {
         val offload = dataStore.get(AudioOffload, false)
-        val crossfade = dataStore.get(CrossfadeEnabledKey, false)
+        val crossfade = dataStore.get(CrossfadeEnabledKey, true)
         setOffloadEnabled(if (crossfade) false else offload)
-        skipSilenceEnabled = dataStore.get(SkipSilenceKey, false)
+        skipSilenceEnabled = dataStore.get(SkipSilenceKey, true)
       }
       addAnalyticsListener(PlaybackStatsListener(false, this@MusicService))
     }
@@ -5457,7 +5457,7 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
     val shareIntent =
       Intent(Intent.ACTION_SEND).apply {
         type = "text/plain"
-        putExtra(Intent.EXTRA_TEXT, "https://share.echomusic.fun/watch?v=$songId")
+        putExtra(Intent.EXTRA_TEXT, "https://music.youtube.com/watch?v=$songId")
         addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
       }
     startActivity(

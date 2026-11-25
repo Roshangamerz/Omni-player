@@ -542,7 +542,7 @@ object WrappedShareHelper {
           typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
         }
       canvas.drawText(
-        "CRAFTED WITH ECHO MUSIC • ${data.yearLabel} REPLAY • omniplayer.app/wrapped",
+        "CRAFTED WITH OMNI PLAYER • ${data.yearLabel} REPLAY • omniplayer.app/wrapped",
         width / 2f,
         1750f,
         footerPaint,

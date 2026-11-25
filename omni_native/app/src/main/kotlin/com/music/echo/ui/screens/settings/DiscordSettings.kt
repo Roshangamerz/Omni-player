@@ -297,7 +297,7 @@ fun DiscordSettings(
   val (button2CustomUrl) =
     rememberPreference(
       key = DiscordActivityButton2CustomUrlKey,
-      defaultValue = "https://github.com/OmniPlayerApp/Echo-Music",
+      defaultValue = "https://github.com/Roshangamerz/Omni-player",
     )
 
   val (activityType, onActivityTypeChange) =
@@ -1286,7 +1286,7 @@ fun RichPresence(
   button2Label: String = "Go to Omni Player",
   button2Enabled: Boolean = true,
   button2UrlSource: String = "custom",
-  button2CustomUrl: String = "https://github.com/OmniPlayerApp/Echo-Music",
+  button2CustomUrl: String = "https://github.com/Roshangamerz/Omni-player",
   isPlaying: Boolean = false,
 ) {
   val context = LocalContext.current

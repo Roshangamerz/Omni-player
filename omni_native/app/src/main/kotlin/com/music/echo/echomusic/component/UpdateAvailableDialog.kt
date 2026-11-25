@@ -196,7 +196,7 @@ fun UpdateAvailableDialog(
           Button(
             onClick = {
               onDismiss()
-              context.safeOpenUri("https://echomusic.fun")
+              context.safeOpenUri("https://omniplayer.app")
             },
             shape = actionShape,
           ) {

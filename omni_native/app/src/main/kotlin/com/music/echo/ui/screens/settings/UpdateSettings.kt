@@ -134,7 +134,7 @@ fun UpdateSettings(
               }
             },
             onClick = {
-              context.safeOpenUri("https://echomusic.fun")
+              context.safeOpenUri("https://omniplayer.app")
             },
           ),
         ),

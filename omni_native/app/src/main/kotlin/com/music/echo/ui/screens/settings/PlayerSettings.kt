@@ -104,9 +104,9 @@ fun PlayerSettings(
     )
 
   val (crossfadeEnabled, onCrossfadeEnabledChange) =
-    rememberPreference(CrossfadeEnabledKey, defaultValue = false)
+    rememberPreference(CrossfadeEnabledKey, defaultValue = true)
   val (crossfadeDuration, onCrossfadeDurationChange) =
-    rememberPreference(CrossfadeDurationKey, defaultValue = 5f)
+    rememberPreference(CrossfadeDurationKey, defaultValue = 8f)
   val (automixCrossfade, onAutomixCrossfadeChange) =
     rememberPreference(AutomixCrossfadeKey, defaultValue = false)
   val (automixDebugOverlay, onAutomixDebugOverlayChange) =
@@ -115,7 +115,7 @@ fun PlayerSettings(
     rememberPreference(CrossfadeGaplessKey, defaultValue = true)
   val (persistentQueue, onPersistentQueueChange) =
     rememberPreference(PersistentQueueKey, defaultValue = true)
-  val (skipSilence, onSkipSilenceChange) = rememberPreference(SkipSilenceKey, defaultValue = false)
+  val (skipSilence, onSkipSilenceChange) = rememberPreference(SkipSilenceKey, defaultValue = true)
   val (skipSilenceInstant, onSkipSilenceInstantChange) =
     rememberPreference(SkipSilenceInstantKey, defaultValue = false)
   val (varispeed, onVarispeedChange) = rememberPreference(VarispeedKey, defaultValue = false)

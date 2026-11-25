@@ -551,18 +551,7 @@ private fun ThumbnailItem(
   val isPlaying by playerConnection.isPlaying.collectAsState()
   val isCurrentItem = item.mediaId == currentMediaId
 
-  val infiniteTransition = rememberInfiniteTransition(label = "ThumbnailRotation")
-  val rotation by
-    infiniteTransition.animateFloat(
-      initialValue = 0f,
-      targetValue = if (isPlaying && rotatingThumbnail && isCurrentItem) 360f else 0f,
-      animationSpec =
-        infiniteRepeatable(
-          animation = tween(20000, easing = LinearEasing),
-          repeatMode = androidx.compose.animation.core.RepeatMode.Restart,
-        ),
-      label = "Rotation",
-    )
+  // Rotation handled efficiently inside RetroTurntableVinylPlayer
 
   val dataSaverEnabled by rememberPreference(key = DataSaverEnabledKey, defaultValue = false)
   val canvasThumbnailAnimationPref by
