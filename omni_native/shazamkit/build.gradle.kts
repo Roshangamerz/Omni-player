@@ -7,7 +7,7 @@ android {
   namespace = "com.music.shazamkit"
   compileSdk = 37
 
-  defaultConfig { minSdk = 26 }
+  defaultConfig { minSdk = 24 }
 
   compileOptions {
     isCoreLibraryDesugaringEnabled = true

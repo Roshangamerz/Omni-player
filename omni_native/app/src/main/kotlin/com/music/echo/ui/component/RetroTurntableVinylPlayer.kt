@@ -75,9 +75,8 @@ fun RetroTurntableVinylPlayer(
     }
   }
 
-  // Animated LED & spark pulse while playing
+  // Animated LED pulse while playing
   val ledPulse: State<Float>
-  val sparkPulse: State<Float>
   if (isPlaying && tier != PerformanceTier.LOW) {
     val infiniteTransition = rememberInfiniteTransition(label = "TurntableFX")
     ledPulse = infiniteTransition.animateFloat(
@@ -89,18 +88,8 @@ fun RetroTurntableVinylPlayer(
       ),
       label = "LedPulse",
     )
-    sparkPulse = infiniteTransition.animateFloat(
-      initialValue = 0.2f,
-      targetValue = 1.0f,
-      animationSpec = infiniteRepeatable(
-        animation = tween(420, easing = LinearEasing),
-        repeatMode = RepeatMode.Reverse,
-      ),
-      label = "SparkPulse",
-    )
   } else {
     ledPulse = remember(isPlaying) { mutableFloatStateOf(if (isPlaying) 1.0f else 0.3f) }
-    sparkPulse = remember(isPlaying) { mutableFloatStateOf(0f) }
   }
 
   // Tone arm anchored below the OMNI-808 hardware block so it never overlaps text:
@@ -298,31 +287,6 @@ fun RetroTurntableVinylPlayer(
           }
         },
     )
-
-    // Animated Electric Spark on the Yellow Cable when playing
-    if (isPlaying) {
-      Spacer(
-        modifier = Modifier
-          .align(Alignment.CenterEnd)
-          .padding(end = 60.dp, bottom = 78.dp)
-          .size(16.dp)
-          .graphicsLayer { alpha = sparkPulse.value }
-          .drawWithCache {
-            val c = Offset(size.width / 2f, size.height / 2f)
-            val r = size.width / 2f
-            val glow = Brush.radialGradient(
-              colors = listOf(Color.White, Color(0xFFFFD54F), Color.Transparent),
-              center = c,
-              radius = r,
-            )
-            onDrawBehind {
-              drawCircle(brush = glow, radius = r, center = c)
-              drawLine(Color.White, Offset(c.x - r * 0.6f, c.y), Offset(c.x + r * 0.6f, c.y), strokeWidth = 2f)
-              drawLine(Color.White, Offset(c.x, c.y - r * 0.6f), Offset(c.x, c.y + r * 0.6f), strokeWidth = 2f)
-            }
-          },
-      )
-    }
 
     // 4. Horizontal Retro Capsule + Beige Hardware Deck
     Box(
