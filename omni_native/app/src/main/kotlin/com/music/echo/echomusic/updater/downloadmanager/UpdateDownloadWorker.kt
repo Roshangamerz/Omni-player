@@ -47,6 +47,8 @@ class UpdateDownloadWorker(private val context: Context, workerParams: WorkerPar
         val url = URL(apkUrl)
         val connection = url.openConnection() as HttpURLConnection
         connection.requestMethod = "GET"
+        connection.instanceFollowRedirects = true
+        connection.setRequestProperty("User-Agent", "OmniPlayer-Android")
         connection.connectTimeout = 15000
         connection.readTimeout = 15000
         connection.connect()

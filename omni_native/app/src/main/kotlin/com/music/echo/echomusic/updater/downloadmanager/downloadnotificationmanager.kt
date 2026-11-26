@@ -229,6 +229,15 @@ object DownloadNotificationManager {
     setShortCriticalTextSafely(builder, appContext.getString(R.string.done))
 
     notificationManager.notify(NOTIFICATION_ID, builder.build())
+    launchInstallerSafely(installIntent)
+  }
+
+  private fun launchInstallerSafely(installIntent: Intent) {
+    try {
+      if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O || appContext.packageManager.canRequestPackageInstalls()) {
+        appContext.startActivity(installIntent)
+      }
+    } catch (_: Exception) {}
   }
 
   private fun setShortCriticalTextSafely(builder: Notification.Builder, text: String) {
@@ -325,5 +334,6 @@ object DownloadNotificationManager {
         .build()
 
     notificationManager.notify(NOTIFICATION_ID, notification)
+    launchInstallerSafely(installIntent)
   }
 }
