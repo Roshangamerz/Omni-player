@@ -90,12 +90,17 @@ fun RetroTurntableVinylPlayer(
       remember(isPlaying) { mutableFloatStateOf(if (isPlaying) 1.0f else 0.3f) }
     }
 
-  // Tone arm sweeps smoothly from outer edge (-2f) at song start to inner edge (+20f) at song end
+  // Tone arm sweeps strictly within the vinyl groove band:
+  // -28f (outer groove at 0%) -> -10f (inner groove just outside the red ring at 100%)
+  // Parks at -36f (resting on outer rim) when paused
   val clampedProgress = progress.coerceIn(0f, 1f)
-  val targetArmAngle = if (isPlaying) -2f + (22f * clampedProgress) else -32f
+  val targetArmAngle = if (isPlaying) -28f + (18f * clampedProgress) else -36f
   val armAngle by animateFloatAsState(
     targetValue = targetArmAngle,
-    animationSpec = tween(durationMillis = 480, easing = FastOutSlowInEasing),
+    animationSpec = spring(
+      dampingRatio = Spring.DampingRatioNoBouncy,
+      stiffness = Spring.StiffnessLow,
+    ),
     label = "ToneArmAngle",
   )
 
