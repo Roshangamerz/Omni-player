@@ -106,7 +106,7 @@ fun RetroTurntableVinylPlayer(
   // Tone arm anchored below the OMNI-808 hardware block so it never overlaps text:
   // Sweeps from -14f (outer groove at 0%) to +6f (inner groove outside red ring at 100%); parks at -24f when paused
   val clampedProgress = progress.coerceIn(0f, 1f)
-  val targetArmAngle = if (isPlaying) -14f + (20f * clampedProgress) else -24f
+  val targetArmAngle = if (isPlaying) 10f + (14f * clampedProgress) else -10f
   val armAngle by animateFloatAsState(
     targetValue = targetArmAngle,
     animationSpec = spring(
