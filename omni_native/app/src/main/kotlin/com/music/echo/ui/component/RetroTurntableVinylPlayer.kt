@@ -14,7 +14,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
@@ -63,8 +65,8 @@ fun RetroTurntableVinylPlayer(
       withFrameNanos { frameNanos ->
         if (lastNanos != 0L) {
           val dt = ((frameNanos - lastNanos) / 1_000_000_000f).coerceIn(0f, 0.05f)
-          val targetVelocity = if (playing) 138f else 0f // ~2.6s per full rotation
-          val damping = if (playing) 4.5f else 2.8f // realistic motor ramp-up & friction coast-down
+          val targetVelocity = if (playing) 138f else 0f
+          val damping = if (playing) 4.5f else 2.8f
           angularVelocity += (targetVelocity - angularVelocity) * (dt * damping).coerceAtMost(1f)
           rotationAngle = (rotationAngle + angularVelocity * dt) % 360f
         }
@@ -73,28 +75,38 @@ fun RetroTurntableVinylPlayer(
     }
   }
 
-  // LED pulsing only while playing
-  val ledPulse: State<Float> =
-    if (isPlaying && tier != PerformanceTier.LOW) {
-      val infiniteTransition = rememberInfiniteTransition(label = "LedPulseTransition")
-      infiniteTransition.animateFloat(
-        initialValue = 0.45f,
-        targetValue = 1.0f,
-        animationSpec = infiniteRepeatable(
-          animation = tween(800, easing = FastOutSlowInEasing),
-          repeatMode = RepeatMode.Reverse,
-        ),
-        label = "LedPulse",
-      )
-    } else {
-      remember(isPlaying) { mutableFloatStateOf(if (isPlaying) 1.0f else 0.3f) }
-    }
+  // Animated LED & spark pulse while playing
+  val ledPulse: State<Float>
+  val sparkPulse: State<Float>
+  if (isPlaying && tier != PerformanceTier.LOW) {
+    val infiniteTransition = rememberInfiniteTransition(label = "TurntableFX")
+    ledPulse = infiniteTransition.animateFloat(
+      initialValue = 0.45f,
+      targetValue = 1.0f,
+      animationSpec = infiniteRepeatable(
+        animation = tween(750, easing = FastOutSlowInEasing),
+        repeatMode = RepeatMode.Reverse,
+      ),
+      label = "LedPulse",
+    )
+    sparkPulse = infiniteTransition.animateFloat(
+      initialValue = 0.2f,
+      targetValue = 1.0f,
+      animationSpec = infiniteRepeatable(
+        animation = tween(420, easing = LinearEasing),
+        repeatMode = RepeatMode.Reverse,
+      ),
+      label = "SparkPulse",
+    )
+  } else {
+    ledPulse = remember(isPlaying) { mutableFloatStateOf(if (isPlaying) 1.0f else 0.3f) }
+    sparkPulse = remember(isPlaying) { mutableFloatStateOf(0f) }
+  }
 
-  // Tone arm sweeps strictly within the vinyl groove band:
-  // -28f (outer groove at 0%) -> -10f (inner groove just outside the red ring at 100%)
-  // Parks at -36f (resting on outer rim) when paused
+  // Tone arm anchored below the OMNI-808 hardware block so it never overlaps text:
+  // Sweeps from -14f (outer groove at 0%) to +6f (inner groove outside red ring at 100%); parks at -24f when paused
   val clampedProgress = progress.coerceIn(0f, 1f)
-  val targetArmAngle = if (isPlaying) -28f + (18f * clampedProgress) else -36f
+  val targetArmAngle = if (isPlaying) -14f + (20f * clampedProgress) else -24f
   val armAngle by animateFloatAsState(
     targetValue = targetArmAngle,
     animationSpec = spring(
@@ -104,35 +116,24 @@ fun RetroTurntableVinylPlayer(
     label = "ToneArmAngle",
   )
 
-  val vinylDiameter = playerSize * 0.86f
-  val deckWidth = playerSize * 0.72f
-  val deckHeight = 58.dp
+  val vinylDiameter = playerSize * 0.80f
+  val consoleWidth = playerSize * 0.61f
+  val consoleHeight = 52.dp
   val decodeSize = if (tier == PerformanceTier.LOW) 300 else 512
-
-  val deckBrush = remember {
-    Brush.horizontalGradient(
-      colors = listOf(
-        Color(0xFF0A0C10),
-        Color(0xFF141720),
-        Color(0xFFDCDFE5),
-        Color(0xFFECEFF4),
-      ),
-    )
-  }
 
   Box(
     modifier = modifier.size(playerSize),
     contentAlignment = Alignment.Center,
   ) {
-    // Static soft radial shadow behind the disc (zero per-frame shadow recomputation)
+    // 1. Static soft radial shadow behind the vinyl disc
     Box(
       modifier = Modifier
         .align(Alignment.CenterStart)
-        .padding(start = 10.dp, top = 8.dp)
+        .padding(start = 6.dp, top = 8.dp)
         .size(vinylDiameter * 1.04f)
         .drawWithCache {
           val shadowBrush = Brush.radialGradient(
-            colors = listOf(Color.Black.copy(alpha = 0.55f), Color.Transparent),
+            colors = listOf(Color.Black.copy(alpha = 0.58f), Color.Transparent),
             center = Offset(size.width / 2f, size.height / 2f),
             radius = size.width / 2f,
           )
@@ -140,11 +141,11 @@ fun RetroTurntableVinylPlayer(
         },
     )
 
-    // 1. Spinning Picture-Disc Vinyl Record
+    // 2. Spinning Picture-Disc Vinyl Record
     Box(
       modifier = Modifier
         .align(Alignment.CenterStart)
-        .padding(start = 12.dp)
+        .padding(start = 8.dp)
         .size(vinylDiameter)
         .graphicsLayer { rotationZ = rotationAngle }
         .clip(CircleShape)
@@ -172,7 +173,7 @@ fun RetroTurntableVinylPlayer(
         )
       }
 
-      // Dark Vintage Vinyl Grooves + Warm Sepia/Charcoal Vignette + Sheen
+      // Dark Vintage Grooves + Warm Vignette + Anisotropic Sheen
       Spacer(
         modifier = Modifier
           .fillMaxSize()
@@ -184,7 +185,7 @@ fun RetroTurntableVinylPlayer(
                 Color.White.copy(alpha = 0.02f),
                 Color.White.copy(alpha = 0.16f),
                 Color.White.copy(alpha = 0.02f),
-                Color.White.copy(alpha = 0.13f),
+                Color.White.copy(alpha = 0.14f),
                 Color.White.copy(alpha = 0.02f),
               ),
               center = center,
@@ -196,14 +197,14 @@ fun RetroTurntableVinylPlayer(
                 floatArrayOf(0.96f, 0.91f, 0.86f, 0.81f, 0.76f, 0.71f, 0.66f, 0.61f, 0.56f, 0.51f)
               }
             val darkGrooveColor = Color.Black.copy(alpha = 0.48f)
-            val darkGrooveStroke = Stroke(width = 2.2f)
+            val darkGrooveStroke = Stroke(width = 2.1f)
             val vintageHighlightColor = Color(0xFFD7C4A3).copy(alpha = 0.07f)
             val vintageHighlightStroke = Stroke(width = 1.0f)
             val outerEdgeStroke = Stroke(width = 5f)
             val vintageVignette = Brush.radialGradient(
               colors = listOf(
                 Color(0xFF1A140E).copy(alpha = 0.22f),
-                Color(0xFF0E0C0A).copy(alpha = 0.42f),
+                Color(0xFF0E0C0A).copy(alpha = 0.44f),
               ),
               center = center,
               radius = radius,
@@ -236,8 +237,8 @@ fun RetroTurntableVinylPlayer(
           },
       )
 
-      // Solid Dark Center Label (cuts image inside the red ring) & Metallic Spindle Hole
-      val labelDiameter = vinylDiameter * 0.44f
+      // Solid Dark Center Label inside Red Accent Ring
+      val labelDiameter = vinylDiameter * 0.42f
       Box(
         modifier = Modifier
           .size(labelDiameter)
@@ -249,132 +250,281 @@ fun RetroTurntableVinylPlayer(
       ) {
         Box(
           modifier = Modifier
-            .size(18.dp)
+            .size(16.dp)
             .clip(CircleShape)
             .background(Color(0xFF050507))
-            .border(2.5.dp, Color(0xFFE0E0E0), CircleShape),
+            .border(2.dp, Color(0xFFE0E0E0), CircleShape),
         )
       }
     }
 
-    // 2. Futuristic Capsule Console
+    // 3. Connected Yellow Jumper Wires + Retro Docking Backplate + Animated Spark
+    Spacer(
+      modifier = Modifier
+        .align(Alignment.CenterEnd)
+        .padding(end = 14.dp)
+        .size(width = 96.dp, height = 104.dp)
+        .drawWithCache {
+          val w = size.width
+          val h = size.height
+          val wirePath1 = Path().apply {
+            moveTo(w * 0.14f, h * 0.26f)
+            cubicTo(w * 0.22f, h * 0.02f, w * 0.48f, h * 0.04f, w * 0.56f, h * 0.24f)
+          }
+          val wirePath2 = Path().apply {
+            moveTo(w * 0.36f, h * 0.26f)
+            cubicTo(w * 0.46f, h * 0.08f, w * 0.62f, h * 0.14f, w * 0.68f, h * 0.28f)
+          }
+          val underWire = Path().apply {
+            moveTo(w * 0.35f, h * 0.74f)
+            cubicTo(w * 0.42f, h * 0.88f, w * 0.58f, h * 0.88f, w * 0.68f, h * 0.76f)
+          }
+          val wireStroke = Stroke(width = 4.5f, cap = StrokeCap.Round)
+          val thinWireStroke = Stroke(width = 3.5f, cap = StrokeCap.Round)
+
+          onDrawBehind {
+            // Subtle hardware backplate behind console & tower
+            drawRoundRect(
+              color = Color(0xFFBFC4CC),
+              topLeft = Offset(w * 0.10f, h * 0.20f),
+              size = Size(w * 0.66f, h * 0.58f),
+              cornerRadius = CornerRadius(10f, 10f),
+            )
+            // Connected yellow jumper cables
+            drawPath(wirePath1, color = Color(0xFFFFB300), style = wireStroke)
+            drawPath(wirePath2, color = Color(0xFFFF8F00), style = wireStroke)
+            // White lower audio patch cable
+            drawPath(underWire, color = Color(0xFFE5E7EB), style = thinWireStroke)
+          }
+        },
+    )
+
+    // Animated Electric Spark on the Yellow Cable when playing
+    if (isPlaying) {
+      Spacer(
+        modifier = Modifier
+          .align(Alignment.CenterEnd)
+          .padding(end = 60.dp, bottom = 78.dp)
+          .size(16.dp)
+          .graphicsLayer { alpha = sparkPulse.value }
+          .drawWithCache {
+            val c = Offset(size.width / 2f, size.height / 2f)
+            val r = size.width / 2f
+            val glow = Brush.radialGradient(
+              colors = listOf(Color.White, Color(0xFFFFD54F), Color.Transparent),
+              center = c,
+              radius = r,
+            )
+            onDrawBehind {
+              drawCircle(brush = glow, radius = r, center = c)
+              drawLine(Color.White, Offset(c.x - r * 0.6f, c.y), Offset(c.x + r * 0.6f, c.y), strokeWidth = 2f)
+              drawLine(Color.White, Offset(c.x, c.y - r * 0.6f), Offset(c.x, c.y + r * 0.6f), strokeWidth = 2f)
+            }
+          },
+      )
+    }
+
+    // 4. Horizontal Retro Capsule + Beige Hardware Deck
     Box(
       modifier = Modifier
         .align(Alignment.CenterEnd)
-        .width(deckWidth)
-        .height(deckHeight)
-        .clip(RoundedCornerShape(29.dp))
-        .background(deckBrush)
-        .border(1.5.dp, Color.White.copy(alpha = 0.25f), RoundedCornerShape(29.dp)),
+        .padding(end = 26.dp)
+        .width(consoleWidth)
+        .height(consoleHeight)
+        .clip(RoundedCornerShape(topStart = 26.dp, bottomStart = 26.dp, topEnd = 6.dp, bottomEnd = 6.dp))
+        .background(Color(0xFFD8D5CE))
+        .border(
+          1.2.dp,
+          Color.White.copy(alpha = 0.45f),
+          RoundedCornerShape(topStart = 26.dp, bottomStart = 26.dp, topEnd = 6.dp, bottomEnd = 6.dp),
+        ),
     ) {
       Row(
         modifier = Modifier.fillMaxSize(),
         verticalAlignment = Alignment.CenterVertically,
       ) {
+        // Dark Glossy Pill Screen with Cyan LED Marquee & Dual Green Status LEDs
         Box(
           modifier = Modifier
-            .weight(1.3f)
+            .weight(1.45f)
             .fillMaxHeight()
             .padding(4.dp)
-            .clip(RoundedCornerShape(24.dp))
-            .background(Color(0xFF050B08))
-            .border(1.dp, Color(0xFF00E5FF).copy(alpha = 0.35f), RoundedCornerShape(24.dp))
-            .padding(horizontal = 8.dp),
-          contentAlignment = Alignment.CenterStart,
+            .clip(RoundedCornerShape(22.dp))
+            .background(Color(0xFF05090B))
+            .border(1.dp, Color(0xFF00E5FF).copy(alpha = 0.28f), RoundedCornerShape(22.dp))
+            .padding(horizontal = 10.dp),
         ) {
+          // Dual glowing green rectangular LEDs in top-right of screen
           Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(3.dp),
+            modifier = Modifier.align(Alignment.TopEnd).padding(top = 5.dp, end = 2.dp),
           ) {
-            val songText = remember(title, artist) {
-              "NOW PLAYING: ${title.uppercase()} • ${artist.uppercase()}      "
-            }
-            Text(
-              text = songText,
-              color = Color(0xFF00F2FE),
-              fontSize = 11.sp,
-              fontWeight = FontWeight.Bold,
-              fontFamily = FontFamily.Monospace,
-              maxLines = 1,
+            Box(
               modifier = Modifier
-                .weight(1f)
-                .basicMarquee(iterations = Int.MAX_VALUE),
+                .size(width = 6.dp, height = 4.dp)
+                .graphicsLayer { alpha = ledPulse.value }
+                .clip(RoundedCornerShape(1.dp))
+                .background(Color(0xFF00E676)),
             )
+            Box(
+              modifier = Modifier
+                .size(width = 6.dp, height = 4.dp)
+                .graphicsLayer { alpha = if (isPlaying) 1f else 0.3f }
+                .clip(RoundedCornerShape(1.dp))
+                .background(Color(0xFF00E676)),
+            )
+          }
 
-            Spacer(Modifier.width(4.dp))
+          val songText = remember(title, artist) {
+            "NOW PLAYING: ${title.uppercase()} • ${artist.uppercase()}      "
+          }
+          Text(
+            text = songText,
+            color = Color(0xFF4FF8FF),
+            fontSize = 10.5.sp,
+            fontWeight = FontWeight.Bold,
+            fontFamily = FontFamily.Monospace,
+            maxLines = 1,
+            modifier = Modifier
+              .align(Alignment.CenterStart)
+              .fillMaxWidth()
+              .padding(top = 6.dp)
+              .basicMarquee(iterations = Int.MAX_VALUE),
+          )
+        }
 
-            Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+        // Beige Hardware Control Block (OMNI-808 + tactile dots + mini dials)
+        Column(
+          modifier = Modifier
+            .weight(0.78f)
+            .fillMaxHeight()
+            .padding(horizontal = 6.dp, vertical = 4.dp),
+          verticalArrangement = Arrangement.SpaceBetween,
+          horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+          // Top orange indicator dot row
+          Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+            repeat(5) { idx ->
               Box(
                 modifier = Modifier
-                  .size(5.dp)
-                  .graphicsLayer { alpha = ledPulse.value }
+                  .size(3.dp)
                   .clip(CircleShape)
-                  .background(Color(0xFF00E676)),
+                  .background(if (idx < 3) Color(0xFFE65100) else Color(0xFF9CA3AF)),
               )
+            }
+          }
+          Text(
+            text = "OMNI-808",
+            color = Color(0xFF374151),
+            fontSize = 8.5.sp,
+            fontWeight = FontWeight.Black,
+            letterSpacing = 0.8.sp,
+          )
+          // 3 tiny circular retro dial icons
+          Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            repeat(3) {
               Box(
                 modifier = Modifier
-                  .size(5.dp)
-                  .graphicsLayer { alpha = if (isPlaying) 1f else 0.3f }
+                  .size(7.dp)
                   .clip(CircleShape)
-                  .background(Color(0xFF00E676)),
+                  .background(Color(0xFF9CA3AF))
+                  .border(1.dp, Color(0xFF4B5563), CircleShape),
               )
             }
           }
         }
-
-        Column(
-          modifier = Modifier
-            .weight(0.7f)
-            .fillMaxHeight()
-            .padding(horizontal = 8.dp, vertical = 6.dp),
-          verticalArrangement = Arrangement.Center,
-          horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-          Text(
-            text = "OMNI-808",
-            color = Color(0xFF2C3038),
-            fontSize = 10.sp,
-            fontWeight = FontWeight.Black,
-            letterSpacing = 1.sp,
-          )
-          Text(
-            text = "ACOUSTIC CORE",
-            color = Color(0xFF6B7280),
-            fontSize = 7.sp,
-            fontWeight = FontWeight.Bold,
-          )
-        }
       }
     }
 
-    // 3. Articulated Tone Arm (sweeps from outer groove to inner groove as song progresses)
-    val armBoxSize = playerSize * 0.42f
+    // 5. Right-Side Vertical Retro Hardware Tower + Telescoping Antenna
     Spacer(
       modifier = Modifier
         .align(Alignment.CenterEnd)
-        .padding(end = 16.dp)
+        .padding(end = 2.dp, bottom = 14.dp)
+        .size(width = 26.dp, height = 146.dp)
+        .drawWithCache {
+          val w = size.width
+          val h = size.height
+          onDrawBehind {
+            // Vertical beige tower body
+            drawRoundRect(
+              color = Color(0xFFD5D2CB),
+              topLeft = Offset(0f, h * 0.28f),
+              size = Size(w * 0.72f, h * 0.70f),
+              cornerRadius = CornerRadius(6f, 6f),
+            )
+            // Speaker grille strip
+            drawRoundRect(
+              color = Color(0xFF9CA3AF).copy(alpha = 0.45f),
+              topLeft = Offset(w * 0.14f, h * 0.34f),
+              size = Size(w * 0.24f, h * 0.58f),
+              cornerRadius = CornerRadius(2f, 2f),
+            )
+            // Chrome telescoping antenna on far right
+            val antX = w * 0.82f
+            drawLine(
+              color = Color(0xFF6B7280),
+              start = Offset(antX, h * 0.90f),
+              end = Offset(antX, h * 0.35f),
+              strokeWidth = 5f,
+              cap = StrokeCap.Round,
+            )
+            drawLine(
+              color = Color(0xFFE5E7EB),
+              start = Offset(antX, h * 0.38f),
+              end = Offset(antX, h * 0.04f),
+              strokeWidth = 2.6f,
+              cap = StrokeCap.Round,
+            )
+            // Antenna tip cap
+            drawCircle(
+              color = Color(0xFFF3F4F6),
+              radius = 3.5f,
+              center = Offset(antX, h * 0.04f),
+            )
+          }
+        },
+    )
+
+    // 6. Articulated Chrome Tone Arm anchored BELOW OMNI-808 (never crosses text or red ring)
+    val armBoxSize = playerSize * 0.38f
+    Spacer(
+      modifier = Modifier
+        .align(Alignment.BottomEnd)
+        .padding(end = 36.dp, bottom = 36.dp)
         .size(armBoxSize)
         .graphicsLayer {
           rotationZ = armAngle
-          transformOrigin = TransformOrigin(0.85f, 0.2f)
+          transformOrigin = TransformOrigin(0.85f, 0.18f)
         }
         .drawWithCache {
           val w = size.width
           val h = size.height
-          val pivot = Offset(w * 0.85f, h * 0.2f)
-          val head = Offset(w * 0.15f, h * 0.85f)
+          val pivot = Offset(w * 0.85f, h * 0.18f)
+          val head = Offset(w * 0.18f, h * 0.82f)
           onDrawBehind {
+            // Chrome tonearm shaft
             drawLine(
-              color = Color(0xFFDCDFE5),
+              color = Color(0xFFE5E7EB),
               start = pivot,
               end = head,
-              strokeWidth = 14f,
+              strokeWidth = 11f,
               cap = StrokeCap.Round,
             )
-            drawCircle(color = Color(0xFF212529), radius = 15f, center = head)
-            drawCircle(color = Color(0xFF00E5FF), radius = 6.5f, center = head)
-            drawCircle(color = Color(0xFF343A40), radius = 26f, center = pivot)
-            drawCircle(color = Color(0xFFADB5BD), radius = 13f, center = pivot)
+            // Subtle metallic highlight along shaft
+            drawLine(
+              color = Color.White.copy(alpha = 0.65f),
+              start = pivot,
+              end = head,
+              strokeWidth = 3.5f,
+              cap = StrokeCap.Round,
+            )
+            // Black cartridge headshell & fine stylus needle
+            drawCircle(color = Color(0xFF181A1F), radius = 14f, center = head)
+            drawCircle(color = Color(0xFF00E5FF), radius = 5.5f, center = head)
+            // Pivot base mount
+            drawCircle(color = Color(0xFF2D3138), radius = 18f, center = pivot)
+            drawCircle(color = Color(0xFF9CA3AF), radius = 9f, center = pivot)
           }
         },
     )
