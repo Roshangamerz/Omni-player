@@ -674,8 +674,15 @@ suspend fun checkForUpdate(
 ) {
   withContext(Dispatchers.IO) {
     try {
-      val url = URL("https://api.github.com/repos/Roshangamerz/Omni-player/releases/latest")
-      val json = url.openStream().bufferedReader().use { it.readText() }
+      val conn =
+        (URL("https://api.github.com/repos/Roshangamerz/Omni-player/releases/latest").openConnection()
+          as java.net.HttpURLConnection).apply {
+          connectTimeout = 15_000
+          readTimeout = 15_000
+          setRequestProperty("User-Agent", "OmniPlayer-Android")
+          setRequestProperty("Accept", "application/vnd.github.v3+json")
+        }
+      val json = conn.inputStream.bufferedReader().use { it.readText() }
       val targetRelease = JSONObject(json)
 
       val currentVersion = BuildConfig.VERSION_NAME
