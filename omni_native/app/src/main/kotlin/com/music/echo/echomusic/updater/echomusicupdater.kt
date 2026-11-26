@@ -674,7 +674,7 @@ suspend fun checkForUpdate(
 ) {
   withContext(Dispatchers.IO) {
     try {
-      val url = URL("https://api.github.com/repos/OmniPlayerApp/Echo-Music/releases/latest")
+      val url = URL("https://api.github.com/repos/Roshangamerz/Omni-player/releases/latest")
       val json = url.openStream().bufferedReader().use { it.readText() }
       val targetRelease = JSONObject(json)
 
@@ -682,7 +682,7 @@ suspend fun checkForUpdate(
       val targetTagName = targetRelease.getString("tag_name")
       val currentClean = currentVersion.removePrefix("b").removePrefix("v").trim()
       val targetClean = targetTagName.removePrefix("b").removePrefix("v").trim()
-      val shouldShow = currentClean != targetClean
+      val shouldShow = isNewerVersion(targetTagName, currentVersion)
 
       if (shouldShow) {
         val tagWithPrefix = targetRelease.getString("tag_name")
@@ -737,10 +737,7 @@ suspend fun checkForUpdate(
         for (j in 0 until assets.length()) {
           val asset = assets.getJSONObject(j)
           val assetName = asset.getString("name")
-          if (
-            assetName.endsWith(".apk", ignoreCase = true) &&
-              !assetName.lowercase().contains("debug")
-          ) {
+          if (assetName.endsWith(".apk", ignoreCase = true)) {
             val apkSizeInBytes = asset.getLong("size")
             apkSizeInMB = String.format("%.1f", apkSizeInBytes / (1024.0 * 1024.0))
             apkDownloadUrl = asset.getString("browser_download_url")
@@ -814,7 +811,7 @@ suspend fun fetchChangelogForVersion(currentVersion: String): WhatsNewInfo? =
     try {
       val cleanCurrent = currentVersion.removePrefix("b").removePrefix("v").trim()
       val releasesJson =
-        openTimedStream("https://api.github.com/repos/OmniPlayerApp/Echo-Music/releases")
+        openTimedStream("https://api.github.com/repos/Roshangamerz/Omni-player/releases")
           .bufferedReader()
           .use { it.readText() }
       val releases = JSONArray(releasesJson)

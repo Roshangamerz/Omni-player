@@ -547,6 +547,10 @@ class MainActivity : ComponentActivity() {
     var availableUpdateDescription by remember {
       androidx.compose.runtime.mutableStateOf<String?>(null)
     }
+    var availableUpdateApkUrl by remember {
+      androidx.compose.runtime.mutableStateOf<String?>(null)
+    }
+    var availableUpdateSize by remember { androidx.compose.runtime.mutableStateOf("") }
     var whatsNewInfo by remember {
       androidx.compose.runtime.mutableStateOf<echo.music.iad1tya.echomusic.updater.WhatsNewInfo?>(
         null,
@@ -586,7 +590,7 @@ class MainActivity : ComponentActivity() {
         delay(2000L)
         checkForUpdate(
           context = context,
-          onSuccess = { latestVersion, isAvailable, changelog, _, _, description, _, _ ->
+          onSuccess = { latestVersion, isAvailable, changelog, size, _, description, _, apkUrl ->
             val currentVersion = BuildConfig.VERSION_NAME
             Log.d(
               "UpdateCheck",
@@ -598,6 +602,8 @@ class MainActivity : ComponentActivity() {
               availableUpdateVersion = latestVersion
               availableUpdateChangelog = changelog
               availableUpdateDescription = description
+              availableUpdateApkUrl = apkUrl
+              availableUpdateSize = size
               showUpdateDialog = true
             }
 
@@ -772,11 +778,13 @@ class MainActivity : ComponentActivity() {
     ) {
       val hapticHelper = rememberHapticHelper()
 
-      if (false && showUpdateDialog) {
+      if (showUpdateDialog) {
         echo.music.iad1tya.echomusic.component.UpdateAvailableDialog(
           version = availableUpdateVersion,
           changelog = availableUpdateChangelog,
           description = availableUpdateDescription,
+          apkUrl = availableUpdateApkUrl,
+          fileSize = availableUpdateSize,
           onDismiss = { showUpdateDialog = false },
         )
       } else {

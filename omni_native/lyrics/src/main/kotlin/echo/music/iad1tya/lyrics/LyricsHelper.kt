@@ -62,9 +62,7 @@ constructor(
         true
       }
 
-    if (!isNetworkAvailable) {
-      return LyricsWithProvider(LYRICS_NOT_FOUND, "Unknown")
-    }
+    // Don't hard-block on ConnectivityManager (VPNs/private DNS/old Androids can report false negatives)
 
     // Shared fetches live in fetchScope, not the first caller's scope, so one caller being
     // cancelled (e.g. collectLatest on a song switch) can't fail the others awaiting it.
@@ -176,9 +174,7 @@ constructor(
         true
       }
 
-    if (!isNetworkAvailable) {
-      return
-    }
+    // Don't hard-block on ConnectivityManager in getAllLyrics
 
     val allResult = java.util.concurrent.CopyOnWriteArrayList<LyricsResult>()
     val providers = resolveLyricsProviders()
@@ -213,7 +209,7 @@ constructor(
 
   companion object {
     private const val MAX_CACHE_SIZE = 20
-    private const val PROVIDER_TIMEOUT_MS = 5_000L
+    private const val PROVIDER_TIMEOUT_MS = 10_000L
   }
 }
 

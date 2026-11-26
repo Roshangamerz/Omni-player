@@ -3,6 +3,7 @@ package echo.music.iad1tya.ui.screens.library
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -27,7 +28,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -74,6 +77,7 @@ import echo.music.iad1tya.utils.rememberPreference
 import echo.music.iad1tya.viewmodels.LibraryPlaylistsViewModel
 import java.util.UUID
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 @OptIn(
@@ -153,6 +157,10 @@ fun LibraryPlaylistsScreen(
       songThumbnails = emptyList(),
     )
 
+  var showAppleImportDialog by rememberSaveable { mutableStateOf(false) }
+  var appleImportUrl by rememberSaveable { mutableStateOf("") }
+  var appleImportProgress by remember { mutableStateOf<String?>(null) }
+  val appleDatabase = echo.music.iad1tya.LocalDatabase.current
   val (showLiked) = rememberPreference(ShowLikedPlaylistKey, true)
   val (showDownloaded) = rememberPreference(ShowDownloadedPlaylistKey, true)
   val (showExported) = rememberPreference(ShowExportedPlaylistKey, true)
@@ -312,6 +320,14 @@ fun LibraryPlaylistsScreen(
               }
 
               AutoPlaylistButton(
+                title = "Import Apple Music",
+                icon = R.drawable.playlist_add,
+                iconTint = Color(0xFFFA243C),
+                onClick = { showAppleImportDialog = true },
+                modifier = itemModifier,
+              )
+
+              AutoPlaylistButton(
                 title = "Taste Mix",
                 icon = R.drawable.playlist_play,
                 iconTint = androidx.compose.material3.MaterialTheme.colorScheme.primary,
@@ -450,6 +466,22 @@ fun LibraryPlaylistsScreen(
               }
 
               AutoPlaylistButton(
+                title = "Import Apple Music",
+                icon = R.drawable.playlist_add,
+                iconTint = Color(0xFFFA243C),
+                onClick = { showAppleImportDialog = true },
+                modifier = itemModifier,
+              )
+
+              AutoPlaylistButton(
+                title = "Import Apple Music",
+                icon = R.drawable.playlist_add,
+                iconTint = Color(0xFFFA243C),
+                onClick = { showAppleImportDialog = true },
+                modifier = itemModifier,
+              )
+
+              AutoPlaylistButton(
                 title = "Taste Mix",
                 icon = R.drawable.playlist_play,
                 iconTint = androidx.compose.material3.MaterialTheme.colorScheme.primary,
@@ -494,5 +526,82 @@ fun LibraryPlaylistsScreen(
         }
       }
     }
+  
+  if (showAppleImportDialog) {
+    val importScope = androidx.compose.runtime.rememberCoroutineScope()
+    val importContext = androidx.compose.ui.platform.LocalContext.current
+    androidx.compose.material3.AlertDialog(
+      onDismissRequest = {
+        if (appleImportProgress == null) showAppleImportDialog = false
+      },
+      title = { Text("Import Apple Music Playlist") },
+      text = {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+          Text(
+            "Paste a public Apple Music playlist link (music.apple.com) to import its tracks into Omni Player.",
+            style = MaterialTheme.typography.bodySmall,
+          )
+          androidx.compose.material3.OutlinedTextField(
+            value = appleImportUrl,
+            onValueChange = { appleImportUrl = it },
+            placeholder = { Text("https://music.apple.com/.../playlist/...") },
+            singleLine = true,
+            enabled = appleImportProgress == null,
+            modifier = Modifier.fillMaxWidth(),
+          )
+          appleImportProgress?.let { msg ->
+            androidx.compose.material3.LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+            Text(msg, style = MaterialTheme.typography.labelSmall)
+          }
+        }
+      },
+      confirmButton = {
+        androidx.compose.material3.TextButton(
+          enabled = appleImportUrl.isNotBlank() && appleImportProgress == null,
+          onClick = {
+            importScope.launch {
+              appleImportProgress = "Starting import..."
+              val res =
+                echo.music.iad1tya.utils.AppleMusicPlaylistImporter.importPlaylist(
+                  playlistUrl = appleImportUrl,
+                  database = appleDatabase,
+                  onProgress = { msg -> appleImportProgress = msg },
+                )
+              appleImportProgress = null
+              res
+                .onSuccess { info ->
+                  android.widget.Toast.makeText(
+                      importContext,
+                      "Imported ${info.importedCount}/${info.totalFound} tracks into '${info.playlistTitle}'",
+                      android.widget.Toast.LENGTH_LONG,
+                    )
+                    .show()
+                  appleImportUrl = ""
+                  showAppleImportDialog = false
+                }
+                .onFailure { err ->
+                  android.widget.Toast.makeText(
+                      importContext,
+                      err.message ?: "Import failed",
+                      android.widget.Toast.LENGTH_LONG,
+                    )
+                    .show()
+                }
+            }
+          },
+        ) {
+          Text("Import")
+        }
+      },
+      dismissButton = {
+        androidx.compose.material3.TextButton(
+          enabled = appleImportProgress == null,
+          onClick = { showAppleImportDialog = false },
+        ) {
+          Text("Cancel")
+        }
+      },
+    )
+  }
   }
 }

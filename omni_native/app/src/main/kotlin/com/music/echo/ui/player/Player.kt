@@ -1408,16 +1408,26 @@ fun BottomSheetPlayer(
                   modifier =
                     Modifier.fillMaxSize().graphicsLayer { alpha = backgroundAlphaProvider() },
                 ) {
+                  val perfTier = remember { echo.music.iad1tya.utils.DevicePerformance.getTier(context) }
+                  val bgSize = if (perfTier == echo.music.iad1tya.utils.PerformanceTier.LOW) 180 else 360
+                  val bgModifier =
+                    if (echo.music.iad1tya.utils.DevicePerformance.supportsNativeBlur) {
+                      val radius = if (perfTier == echo.music.iad1tya.utils.PerformanceTier.LOW) 8.dp else 14.dp
+                      Modifier.fillMaxSize().blur(radius)
+                    } else {
+                      // Pre-Android 12 fallback: soft translucent artwork + dark scrim so old Androids run at 60fps
+                      Modifier.fillMaxSize().graphicsLayer { alpha = 0.42f }
+                    }
                   AsyncImage(
                     model =
                       ImageRequest.Builder(context)
                         .data(thumbnailUrl)
-                        .size(360, 360)
+                        .size(bgSize, bgSize)
                         .allowHardware(false)
                         .build(),
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize().blur(14.dp),
+                    modifier = bgModifier,
                   )
 
                   val rotatingVinyl by rememberPreference(echo.music.iad1tya.constants.RotatingThumbnailKey, defaultValue = true)

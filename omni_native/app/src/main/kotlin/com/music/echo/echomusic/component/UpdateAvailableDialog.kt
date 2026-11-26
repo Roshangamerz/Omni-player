@@ -34,6 +34,8 @@ fun UpdateAvailableDialog(
   version: String,
   changelog: List<ChangelogSection>,
   description: String?,
+  apkUrl: String? = null,
+  fileSize: String = "",
   onDismiss: () -> Unit,
 ) {
   val context = LocalContext.current
@@ -196,7 +198,39 @@ fun UpdateAvailableDialog(
           Button(
             onClick = {
               onDismiss()
-              context.safeOpenUri("https://omniplayer.app")
+              if (!apkUrl.isNullOrBlank()) {
+                val constraints =
+                  androidx.work.Constraints.Builder()
+                    .setRequiredNetworkType(androidx.work.NetworkType.CONNECTED)
+                    .build()
+                val workRequest =
+                  androidx.work.OneTimeWorkRequestBuilder<
+                      echo.music.iad1tya.echomusic.updater.downloadmanager.UpdateDownloadWorker
+                    >()
+                    .setConstraints(constraints)
+                    .setInputData(
+                      androidx.work.workDataOf(
+                        "apk_url" to apkUrl,
+                        "version" to version,
+                        "file_size" to fileSize,
+                      ),
+                    )
+                    .build()
+                androidx.work.WorkManager.getInstance(context)
+                  .enqueueUniqueWork(
+                    "omni_player_update_download",
+                    androidx.work.ExistingWorkPolicy.REPLACE,
+                    workRequest,
+                  )
+                android.widget.Toast.makeText(
+                    context,
+                    "Downloading Omni Player $version...",
+                    android.widget.Toast.LENGTH_SHORT,
+                  )
+                  .show()
+              } else {
+                context.safeOpenUri("https://github.com/Roshangamerz/Omni-player/releases/latest")
+              }
             },
             shape = actionShape,
           ) {

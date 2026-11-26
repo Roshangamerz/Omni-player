@@ -383,14 +383,30 @@ class App : Application(), SingletonImageLoader.Factory, Configuration.Provider 
           add(LocalAlbumArtFetcher.Factory())
         }
 
-        memoryCache { MemoryCache.Builder().maxSizePercent(context, 0.25).build() }
-        if (cacheSize == 0) {
+        val perfTier = echo.music.iad1tya.utils.DevicePerformance.getTier(this@App)
+        val memPercent =
+          when (perfTier) {
+            echo.music.iad1tya.utils.PerformanceTier.LOW -> 0.12
+            echo.music.iad1tya.utils.PerformanceTier.MID -> 0.18
+            echo.music.iad1tya.utils.PerformanceTier.HIGH -> 0.25
+          }
+        val effectiveDiskMb =
+          when (perfTier) {
+            echo.music.iad1tya.utils.PerformanceTier.LOW -> cacheSize.coerceAtMost(128)
+            echo.music.iad1tya.utils.PerformanceTier.MID -> cacheSize.coerceAtMost(256)
+            echo.music.iad1tya.utils.PerformanceTier.HIGH -> cacheSize
+          }
+        if (perfTier == echo.music.iad1tya.utils.PerformanceTier.LOW) {
+          crossfade(false)
+        }
+        memoryCache { MemoryCache.Builder().maxSizePercent(context, memPercent).build() }
+        if (effectiveDiskMb == 0) {
           diskCachePolicy(CachePolicy.DISABLED)
         } else {
           diskCache(
             DiskCache.Builder()
               .directory(cacheDir.resolve("coil"))
-              .maxSizeBytes(cacheSize * 1024 * 1024L)
+              .maxSizeBytes(effectiveDiskMb * 1024 * 1024L)
               .build(),
           )
         }

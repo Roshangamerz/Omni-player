@@ -176,8 +176,9 @@ fun LoginScreen(navController: NavController) {
             prefs[SavedAccountsKey] = encoded
           }
 
-          // Trigger immediate YouTube playlist & library sync
+          // Trigger immediate YouTube Liked Songs + Saved Playlists sync
           withContext(Dispatchers.IO) {
+            syncUtils.syncLikedSongs()
             syncUtils.syncSavedPlaylists()
             syncUtils.tryAutoSync()
           }
@@ -231,6 +232,7 @@ fun LoginScreen(navController: NavController) {
           }
 
           withContext(Dispatchers.IO) {
+            syncUtils.syncLikedSongs()
             syncUtils.syncSavedPlaylists()
             syncUtils.tryAutoSync()
           }

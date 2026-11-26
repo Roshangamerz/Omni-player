@@ -634,12 +634,30 @@ private fun ThumbnailItem(
       val titleToUse = (item.mediaMetadata.title ?: "").toString()
       val artistToUse = (item.mediaMetadata.artist ?: "").toString()
 
+      var songProgress by remember(item.mediaId) { androidx.compose.runtime.mutableFloatStateOf(0f) }
+      LaunchedEffect(isPlaying, isCurrentItem, item.mediaId) {
+        if (!isCurrentItem) {
+          songProgress = 0f
+          return@LaunchedEffect
+        }
+        while (true) {
+          val dur = playerConnection.player.duration
+          val pos = playerConnection.player.currentPosition
+          if (dur > 0L) {
+            songProgress = (pos.toFloat() / dur.toFloat()).coerceIn(0f, 1f)
+          }
+          if (!isPlaying) break
+          kotlinx.coroutines.delay(500L)
+        }
+      }
+
       echo.music.iad1tya.ui.component.RetroTurntableVinylPlayer(
         artworkUri = artworkUriToUse,
         title = titleToUse,
         artist = artistToUse,
         isPlaying = isPlaying && isCurrentItem,
-        playerSize = dimensions.thumbnailSize
+        playerSize = dimensions.thumbnailSize,
+        progress = songProgress,
       )
     } else {
       Box(
