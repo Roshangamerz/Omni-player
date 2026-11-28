@@ -33,7 +33,9 @@ object DevicePerformance {
       val totalRamMb = memInfo.totalMem / (1024L * 1024L)
 
       when {
-        totalRamMb in 1..2800 || Build.VERSION.SDK_INT < Build.VERSION_CODES.P -> PerformanceTier.LOW
+        totalRamMb in 1..3800 ||
+          Build.VERSION.SDK_INT < Build.VERSION_CODES.P ||
+          (totalRamMb in 1..4300 && Runtime.getRuntime().availableProcessors() <= 4) -> PerformanceTier.LOW
         totalRamMb < 5500 || Build.VERSION.SDK_INT < Build.VERSION_CODES.S -> PerformanceTier.MID
         else -> PerformanceTier.HIGH
       }

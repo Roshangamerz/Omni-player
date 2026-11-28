@@ -160,11 +160,28 @@ class InnerTube {
       if (setLogin && client.loginSupported) {
         cookie?.let { cookie ->
           append("cookie", cookie)
-          if ("SAPISID" !in cookieMap) return@let
+          val sapisid = cookieMap["SAPISID"]
+          val sapisid1p = cookieMap["__Secure-1PAPISID"]
+          val sapisid3p = cookieMap["__Secure-3PAPISID"]
+          val effectivePrimary = sapisid ?: sapisid3p ?: sapisid1p ?: return@let
           val currentTime = System.currentTimeMillis() / 1000
-          val sapisidHash =
-            sha1("$currentTime ${cookieMap["SAPISID"]} ${YouTubeClient.ORIGIN_YOUTUBE_MUSIC}")
-          append("Authorization", "SAPISIDHASH ${currentTime}_${sapisidHash}")
+          val authParts = buildList {
+            add(
+              "SAPISIDHASH ${currentTime}_${sha1("$currentTime $effectivePrimary ${YouTubeClient.ORIGIN_YOUTUBE_MUSIC}")}",
+            )
+            if (sapisid1p != null) {
+              add(
+                "SAPISID1PHASH ${currentTime}_${sha1("$currentTime $sapisid1p ${YouTubeClient.ORIGIN_YOUTUBE_MUSIC}")}",
+              )
+            }
+            if (sapisid3p != null) {
+              add(
+                "SAPISID3PHASH ${currentTime}_${sha1("$currentTime $sapisid3p ${YouTubeClient.ORIGIN_YOUTUBE_MUSIC}")}",
+              )
+            }
+          }
+          append("Authorization", authParts.joinToString(" "))
+          append("X-Goog-AuthUser", "0")
         }
       }
     }

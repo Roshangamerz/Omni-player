@@ -2,6 +2,7 @@ package echo.music.iad1tya.ui.screens
 
 import android.annotation.SuppressLint
 import android.content.Intent
+import android.net.Uri
 import android.os.Message
 import android.webkit.ConsoleMessage
 import android.webkit.CookieManager
@@ -48,6 +49,7 @@ import echo.music.iad1tya.constants.AccountNameKey
 import echo.music.iad1tya.constants.DataSyncIdKey
 import echo.music.iad1tya.constants.InnerTubeCookieKey
 import echo.music.iad1tya.constants.SavedAccountsKey
+import echo.music.iad1tya.constants.UseLoginForBrowse
 import echo.music.iad1tya.constants.VisitorDataKey
 import echo.music.iad1tya.constants.YtmSyncKey
 import echo.music.iad1tya.models.AccountData
@@ -127,15 +129,17 @@ fun LoginScreen(navController: NavController) {
       innerTubeCookie = capturedCookie
 
       YouTube.cookie = capturedCookie
+      YouTube.useLoginForBrowse = true
       if (finalDataSyncId.isNotBlank()) YouTube.dataSyncId = finalDataSyncId
       if (finalVisitorData.isNotBlank()) YouTube.visitorData = finalVisitorData
 
-      // Ensure DataStore is flushed synchronously before SyncUtils checks isLoggedIn()
+      // Ensure DataStore is flushed synchronously before SyncUtils & HomeViewModel reload
       context.dataStore.edit { prefs ->
         prefs[InnerTubeCookieKey] = capturedCookie
         if (finalDataSyncId.isNotBlank()) prefs[DataSyncIdKey] = finalDataSyncId
         if (finalVisitorData.isNotBlank()) prefs[VisitorDataKey] = finalVisitorData
         prefs[YtmSyncKey] = true
+        prefs[UseLoginForBrowse] = true
       }
 
       Timber.d("Login: YouTube object initialized, validating accountInfo...")
@@ -319,50 +323,65 @@ fun LoginScreen(navController: NavController) {
 
               override fun onPageFinished(view: WebView, url: String?) {
                 isLoading = false
-                if (url?.contains("youtube.com") == true) {
-                  evaluateJavascript(
-                    "(function() { return (window.yt && window.yt.config_) ? window.yt.config_.VISITOR_DATA : ''; })();",
-                  ) { value ->
-                    val unquoted = value?.removeSurrounding("\"")
-                    if (!unquoted.isNullOrEmpty() && unquoted != "null") {
-                      visitorData = unquoted
+                val host = runCatching { Uri.parse(url).host?.lowercase().orEmpty() }.getOrDefault("")
+                if (host != "music.youtube.com" || hasCompletedLogin) return
+
+                fun checkMusicSession(attempt: Int) {
+                  if (hasCompletedLogin) return
+                  val currentHost =
+                    runCatching { Uri.parse(view.url).host?.lowercase().orEmpty() }.getOrDefault("")
+                  if (currentHost != "music.youtube.com") return
+
+                  view.evaluateJavascript(
+                    "(function() { var c = window.yt && window.yt.config_; if (!c) return ''; return JSON.stringify({ loggedIn: c.LOGGED_IN === true, vd: c.VISITOR_DATA || '', ds: c.DATASYNC_ID || '' }); })();",
+                  ) { rawJson ->
+                    if (hasCompletedLogin) return@evaluateJavascript
+                    var isLoggedInConfig = false
+                    val clean = rawJson?.removeSurrounding("\"")?.replace("\\\"", "\"")
+                    if (!clean.isNullOrBlank() && clean != "null") {
+                      runCatching {
+                        val obj = org.json.JSONObject(clean)
+                        isLoggedInConfig = obj.optBoolean("loggedIn", false)
+                        val vd = obj.optString("vd", "")
+                        if (vd.isNotBlank()) visitorData = vd
+                        val ds = obj.optString("ds", "").substringBefore("||")
+                        if (ds.isNotBlank()) dataSyncId = ds
+                      }
+                    }
+
+                    val cookieManager = CookieManager.getInstance()
+                    cookieManager.flush()
+                    val musicCookie = cookieManager.getCookie("https://music.youtube.com")
+                    val ytCookie = cookieManager.getCookie("https://www.youtube.com")
+                    val currentCookie =
+                      if (!view.url.isNullOrEmpty()) cookieManager.getCookie(view.url) else null
+
+                    val mergedMap = LinkedHashMap<String, String>()
+                    listOfNotNull(ytCookie, currentCookie, musicCookie).forEach { raw ->
+                      parseCookieString(raw).forEach { (k, v) -> mergedMap[k] = v }
+                    }
+                    val mergedCookie =
+                      mergedMap.entries.joinToString("; ") { "${it.key}=${it.value}" }
+
+                    val effectiveCookie =
+                      when {
+                        hasValidSapisid(mergedCookie) -> mergedCookie
+                        hasValidSapisid(musicCookie) -> musicCookie
+                        hasValidSapisid(ytCookie) -> ytCookie
+                        hasValidSapisid(currentCookie) -> currentCookie
+                        else -> null
+                      }
+
+                    val hasLoginInfoCookie = "LOGIN_INFO" in mergedMap
+                    if ((isLoggedInConfig || hasLoginInfoCookie) && effectiveCookie != null) {
+                      processSuccessfulAuth(effectiveCookie)
+                    } else if (attempt < 8) {
+                      view.postDelayed({ checkMusicSession(attempt + 1) }, 300L)
                     }
                   }
-                  evaluateJavascript(
-                    "(function() { return (window.yt && window.yt.config_) ? window.yt.config_.DATASYNC_ID : ''; })();",
-                  ) { value ->
-                    val unquoted = value?.removeSurrounding("\"")
-                    if (!unquoted.isNullOrEmpty() && unquoted != "null") {
-                      dataSyncId = unquoted.substringBefore("||")
-                    }
-                  }
-                  loadUrl(
-                    "javascript:Android.onRetrieveVisitorData(window.yt && window.yt.config_ ? window.yt.config_.VISITOR_DATA : '')",
-                  )
-                  loadUrl(
-                    "javascript:Android.onRetrieveDataSyncId(window.yt && window.yt.config_ ? window.yt.config_.DATASYNC_ID : '')",
-                  )
                 }
 
-                val cookieManager = CookieManager.getInstance()
-                cookieManager.flush()
-                val musicCookie = cookieManager.getCookie("https://music.youtube.com")
-                val ytCookie = cookieManager.getCookie("https://www.youtube.com")
-                val currentCookie =
-                  if (!url.isNullOrEmpty()) cookieManager.getCookie(url) else null
-
-                val effectiveCookie =
-                  when {
-                    hasValidSapisid(musicCookie) -> musicCookie
-                    hasValidSapisid(ytCookie) -> ytCookie
-                    hasValidSapisid(currentCookie) -> currentCookie
-                    else -> null
-                  }
-
-                val isYouTube = url?.contains("youtube.com") == true
-                if (isYouTube && effectiveCookie != null && !hasCompletedLogin) {
-                  processSuccessfulAuth(effectiveCookie)
-                }
+                checkMusicSession(0)
               }
             }
 

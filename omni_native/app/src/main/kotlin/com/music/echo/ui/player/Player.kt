@@ -1438,50 +1438,58 @@ fun BottomSheetPlayer(
                       label = "clearArtworkAlpha",
                     )
 
-                  Box(
-                    modifier =
-                      Modifier.fillMaxWidth()
-                        .fillMaxHeight(0.68f)
-                        .alpha(clearArtworkAlpha)
-                        .graphicsLayer(compositingStrategy = CompositingStrategy.Offscreen)
-                        .drawWithContent {
-                          drawContent()
+                  if (clearArtworkAlpha > 0.01f) {
+                    Box(
+                      modifier =
+                        Modifier.fillMaxWidth()
+                          .fillMaxHeight(0.68f)
+                          .alpha(clearArtworkAlpha)
+                          .graphicsLayer(compositingStrategy = CompositingStrategy.Offscreen)
+                          .drawWithContent {
+                            drawContent()
 
-                          drawRect(
-                            brush =
-                              Brush.verticalGradient(
-                                colorStops =
-                                  arrayOf(
-                                    0.00f to Color.Black,
-                                    0.70f to Color.Black,
-                                    0.88f to Color.Black.copy(alpha = 0.4f),
-                                    1.00f to Color.Transparent,
-                                  ),
-                              ),
-                            blendMode = BlendMode.DstIn,
-                          )
-                        },
-                  ) {
-                    AsyncImage(
-                      model =
-                        ImageRequest.Builder(context)
-                          .data(thumbnailUrl)
-                          .size(CoilSize.ORIGINAL)
-                          .build(),
-                      contentDescription = null,
-                      contentScale = ContentScale.Crop,
-                      modifier = Modifier.fillMaxSize(),
-                    )
-
-                    if (!isEpisode && enableCanvas && canvasArtwork != null && showCanvas) {
-                      CanvasArtworkPlayer(
-                        primaryUrl = canvasArtwork?.animated,
-                        fallbackUrl = canvasArtwork?.videoUrl,
-                        isPlaying = isPlaying,
-                        clipStartMs = canvasArtwork?.clipStartMs,
-                        clipEndMs = canvasArtwork?.clipEndMs,
+                            drawRect(
+                              brush =
+                                Brush.verticalGradient(
+                                  colorStops =
+                                    arrayOf(
+                                      0.00f to Color.Black,
+                                      0.70f to Color.Black,
+                                      0.88f to Color.Black.copy(alpha = 0.4f),
+                                      1.00f to Color.Transparent,
+                                    ),
+                                ),
+                              blendMode = BlendMode.DstIn,
+                            )
+                          },
+                    ) {
+                      AsyncImage(
+                        model =
+                          ImageRequest.Builder(context)
+                            .data(thumbnailUrl)
+                            .apply {
+                              if (perfTier == echo.music.iad1tya.utils.PerformanceTier.LOW) {
+                                size(512, 512)
+                              } else {
+                                size(CoilSize.ORIGINAL)
+                              }
+                            }
+                            .build(),
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxSize(),
                       )
+
+                      if (!isEpisode && enableCanvas && canvasArtwork != null && showCanvas) {
+                        CanvasArtworkPlayer(
+                          primaryUrl = canvasArtwork?.animated,
+                          fallbackUrl = canvasArtwork?.videoUrl,
+                          isPlaying = isPlaying,
+                          clipStartMs = canvasArtwork?.clipStartMs,
+                          clipEndMs = canvasArtwork?.clipEndMs,
+                          modifier = Modifier.fillMaxSize(),
+                        )
+                      }
                     }
                   }
 
@@ -1500,7 +1508,34 @@ fun BottomSheetPlayer(
           }
           PlayerBackgroundStyle.LIVE_MESH,
           PlayerBackgroundStyle.LIQUID_GLASS -> {
-            val infiniteTransition = rememberInfiniteTransition(label = "liveMeshRotation")
+            val meshPerfTier = remember { echo.music.iad1tya.utils.DevicePerformance.getTier(context) }
+            if (meshPerfTier == echo.music.iad1tya.utils.PerformanceTier.LOW || !echo.music.iad1tya.utils.DevicePerformance.supportsNativeBlur) {
+              if (backgroundThumbnailUrl != null) {
+                Box(modifier = Modifier.fillMaxSize().graphicsLayer { alpha = backgroundAlphaProvider() }) {
+                  AsyncImage(
+                    model =
+                      ImageRequest.Builder(context)
+                        .data(backgroundThumbnailUrl)
+                        .size(160, 160)
+                        .allowHardware(false)
+                        .build(),
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize().graphicsLayer { alpha = 0.42f },
+                  )
+                  Box(
+                    modifier =
+                      Modifier.fillMaxSize()
+                        .background(
+                          Brush.verticalGradient(
+                            listOf(Color.Black.copy(alpha = 0.15f), Color.Black.copy(alpha = 0.55f)),
+                          ),
+                        ),
+                  )
+                }
+              }
+            } else {
+              val infiniteTransition = rememberInfiniteTransition(label = "liveMeshRotation")
 
             val anchorRotation by
               infiniteTransition.animateFloat(
@@ -1624,6 +1659,7 @@ fun BottomSheetPlayer(
                   )
                 }
               }
+            }
             }
           }
           PlayerBackgroundStyle.DEFAULT -> {}

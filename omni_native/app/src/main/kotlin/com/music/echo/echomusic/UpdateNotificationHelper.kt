@@ -26,14 +26,21 @@ object UpdateNotificationHelper {
         NotificationChannel(
           CHANNEL_ID,
           context.getString(R.string.app_updates_title),
-          NotificationManager.IMPORTANCE_DEFAULT,
+          NotificationManager.IMPORTANCE_HIGH,
         )
       nm.createNotificationChannel(channel)
     }
 
+    val cleanTag = versionName.trim()
+    val downloadPageUrl =
+      if (cleanTag.isNotBlank()) {
+        "https://github.com/Roshangamerz/Omni-player/releases/tag/$cleanTag"
+      } else {
+        "https://github.com/Roshangamerz/Omni-player/releases/latest"
+      }
     val intent =
-      Intent(context, echo.music.iad1tya.MainActivity::class.java).apply {
-        flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
+      Intent(Intent.ACTION_VIEW, downloadPageUrl.toUri()).apply {
+        flags = Intent.FLAG_ACTIVITY_NEW_TASK
       }
 
     val flags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
@@ -43,7 +50,9 @@ object UpdateNotificationHelper {
       NotificationCompat.Builder(context, CHANNEL_ID)
         .setSmallIcon(R.drawable.ic_launcher_nobg)
         .setContentTitle(context.getString(R.string.update_available_title))
-        .setContentText(versionName)
+        .setContentText("Omni Player $versionName is ready — Tap to download")
+        .setPriority(NotificationCompat.PRIORITY_HIGH)
+        .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
         .setContentIntent(pending)
         .setAutoCancel(true)
         .build()

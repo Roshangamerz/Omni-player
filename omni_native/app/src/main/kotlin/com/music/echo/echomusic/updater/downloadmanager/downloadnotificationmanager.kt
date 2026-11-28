@@ -21,9 +21,11 @@ object DownloadNotificationManager {
   const val NOTIFICATION_ID = 5678
 
   fun initialize(context: Context) {
-    appContext = context
+    if (::appContext.isInitialized && ::notificationManager.isInitialized) return
+    val appCtx = context.applicationContext
+    appContext = appCtx
     notificationManager =
-      context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+      appCtx.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
       val channel =

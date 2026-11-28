@@ -107,12 +107,13 @@ fun sha1(str: String): String = MessageDigest.getInstance("SHA-1").digest(str.to
 
 fun parseCookieString(cookie: String): Map<String, String> =
   cookie
-    .split("; ")
+    .split(";")
+    .map { it.trim() }
     .filter { it.isNotEmpty() }
     .mapNotNull { part ->
       val splitIndex = part.indexOf('=')
       if (splitIndex == -1) null
-      else part.substring(0, splitIndex) to part.substring(splitIndex + 1)
+      else part.substring(0, splitIndex).trim() to part.substring(splitIndex + 1).trim()
     }
     .toMap()
 

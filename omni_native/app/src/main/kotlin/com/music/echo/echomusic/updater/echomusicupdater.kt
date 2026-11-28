@@ -343,37 +343,14 @@ fun UpdateScreen(navController: NavHostController) {
                         ContextCompat.startActivity(context, installIntent, null)
                       }
                     } else {
-                      val urlToDownload =
-                        currentStatus.apkUrl
-                          ?: "https://github.com/Roshangamerz/Omni-player/releases/download/${currentStatus.version}/OmniPlayer-Native.apk"
-
-                      val constraints =
-                        Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()
-
-                      val downloadRequest =
-                        OneTimeWorkRequestBuilder<UpdateDownloadWorker>()
-                          .setInputData(
-                            workDataOf(
-                              "apk_url" to urlToDownload,
-                              "version" to currentStatus.version,
-                              "file_size" to currentStatus.size,
-                            ),
-                          )
-                          .setConstraints(constraints)
-                          .setBackoffCriteria(
-                            BackoffPolicy.EXPONENTIAL,
-                            10,
-                            java.util.concurrent.TimeUnit.SECONDS,
-                          )
-                          .addTag("update_download")
-                          .build()
-                      WorkManager.getInstance(context)
-                        .enqueueUniqueWork(
-                          "update_download",
-                          ExistingWorkPolicy.REPLACE,
-                          downloadRequest,
-                        )
-                      isDownloading = true
+                      val cleanTag = currentStatus.version.trim()
+                      val releasePageUrl =
+                        if (cleanTag.isNotBlank()) {
+                          "https://github.com/Roshangamerz/Omni-player/releases/tag/$cleanTag"
+                        } else {
+                          "https://github.com/Roshangamerz/Omni-player/releases/latest"
+                        }
+                      context.safeOpenUri(releasePageUrl)
                     }
                   },
                   modifier = Modifier.weight(1f),

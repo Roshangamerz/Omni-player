@@ -2,16 +2,19 @@
 package echo.music.iad1tya.ui.component
 
 import android.os.Build
+import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.CornerBasedShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.isSpecified
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import echo.music.iad1tya.ui.component.backdrop.Backdrop
@@ -52,6 +55,7 @@ data class GlassEffectConfig(
    */
   fun isEnabledFor(component: GlassComponent): Boolean =
     globalEnabled &&
+      isGlassSupported() &&
       when (component) {
         GlassComponent.PLAYER -> playerEnabled
         GlassComponent.MINI_PLAYER -> miniPlayerEnabled
@@ -140,7 +144,19 @@ fun Modifier.liquidGlass(
   applyEdgeEffects: Boolean = true,
   blurRadiusDp: Float = config.blurRadius,
 ): Modifier {
-  if (!isGlassSupported()) return this
+  val context = LocalContext.current
+  val perfTier = remember { echo.music.iad1tya.utils.DevicePerformance.getTier(context) }
+  val surfaceTintColor =
+    if (config.surfaceTintColor.isSpecified) {
+      config.surfaceTintColor
+    } else if (MaterialTheme.colorScheme.surface.luminance() > 0.5f) {
+      Color(0xFFFAFAFA)
+    } else {
+      Color(0xFF121212)
+    }
+  if (!isGlassSupported() || perfTier == echo.music.iad1tya.utils.PerformanceTier.LOW) {
+    return this.background(surfaceTintColor.copy(alpha = 0.85f), shape)
+  }
   val backdrop = LocalAppBackdrop.current
   val density = LocalDensity.current
   val resolutionScale = glassResolutionScale(blurRadiusDp)
@@ -150,16 +166,6 @@ fun Modifier.liquidGlass(
   val saturation = glassSaturation(config.vibrancy)
   val lensHeightPx = with(density) { (config.lensHeight * LENS_MAX_DP).dp.toPx() } * resolutionScale
   val lensAmountPx = with(density) { (config.lensAmount * LENS_MAX_DP).dp.toPx() } * resolutionScale
-  // Apple's glass is a light material on light content and dark on dark; honor an
-  // explicit user color, otherwise follow the theme.
-  val surfaceTintColor =
-    if (config.surfaceTintColor.isSpecified) {
-      config.surfaceTintColor
-    } else if (MaterialTheme.colorScheme.surface.luminance() > 0.5f) {
-      Color(0xFFFAFAFA)
-    } else {
-      Color(0xFF121212)
-    }
 
   return drawBackdrop(
     backdrop = backdrop,

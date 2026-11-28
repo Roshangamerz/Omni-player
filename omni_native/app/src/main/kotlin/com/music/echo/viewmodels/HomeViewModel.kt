@@ -23,6 +23,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import echo.music.iad1tya.R
 import echo.music.iad1tya.constants.BlockedArtistsKey
+import echo.music.iad1tya.constants.DataSyncIdKey
 import echo.music.iad1tya.constants.DislikedSongsKey
 import echo.music.iad1tya.constants.HideExplicitKey
 import echo.music.iad1tya.constants.HideVideoSongsKey
@@ -35,6 +36,8 @@ import echo.music.iad1tya.constants.RecommendationSourceKey
 import echo.music.iad1tya.constants.ShowHomeCommunityKey
 import echo.music.iad1tya.constants.ShowHomeHeroCarouselKey
 import echo.music.iad1tya.constants.SongSortType
+import echo.music.iad1tya.constants.UseLoginForBrowse
+import echo.music.iad1tya.constants.VisitorDataKey
 import echo.music.iad1tya.db.MusicDatabase
 import echo.music.iad1tya.db.entities.Album
 import echo.music.iad1tya.db.entities.LocalItem
@@ -345,16 +348,10 @@ constructor(
   val accountName = MutableStateFlow("Guest")
 
   /**
-   * YouTube Music's "Listen again", recognized in any language by the account's name it carries
-   * above its title. It is left out of Home: it mostly held podcast episodes, which Home keeps
-   * apart, so it showed one or two songs.
+   * Keep personalized account shelves (such as YouTube Music's "Listen again") on Home; podcast
+   * episodes inside sections are already stripped by [filterPodcasts].
    */
-  private fun isListenAgain(section: com.music.innertube.pages.HomePage.Section): Boolean {
-    val label = section.label?.trim().orEmpty()
-    if (label.isEmpty()) return false
-    val name = context.dataStore.get(echo.music.iad1tya.constants.AccountNameKey, "").trim()
-    return name.isNotEmpty() && label.equals(name, ignoreCase = true)
-  }
+  private fun isListenAgain(section: com.music.innertube.pages.HomePage.Section): Boolean = false
 
   val accountImageUrl = MutableStateFlow<String?>(null)
 
@@ -1082,16 +1079,16 @@ constructor(
     }
 
     viewModelScope.launch(Dispatchers.IO) {
-      context.dataStore.data
-        .map {
-          (try {
-            it[InnerTubeCookieKey]
-          } catch (e: Exception) {
-            null
-          })
-        }
-        .distinctUntilChanged()
-        .first()
+      val initialPrefs = context.dataStore.data.first()
+      YouTube.useLoginForBrowse = initialPrefs[UseLoginForBrowse] ?: true
+      initialPrefs[InnerTubeCookieKey]?.takeIf { it.isNotEmpty() }?.let { YouTube.cookie = it }
+      initialPrefs[DataSyncIdKey]?.let { raw ->
+        YouTube.dataSyncId =
+          raw.takeIf { !it.contains("||") }
+            ?: raw.takeIf { it.endsWith("||") }?.substringBefore("||")
+            ?: raw.substringAfter("||")
+      }
+      initialPrefs[VisitorDataKey]?.takeIf { it.isNotEmpty() }?.let { YouTube.visitorData = it }
 
       load()
     }
@@ -1099,31 +1096,82 @@ constructor(
     viewModelScope.launch(Dispatchers.IO) { syncUtils.tryAutoSync() }
 
     viewModelScope.launch(Dispatchers.IO) {
+      var isInitialEmission = true
       context.dataStore.data
-        .map {
-          (try {
-            it[InnerTubeCookieKey]
-          } catch (e: Exception) {
-            null
-          })
+        .map { prefs ->
+          Triple(
+            try {
+              prefs[InnerTubeCookieKey]
+            } catch (e: Exception) {
+              null
+            },
+            try {
+              prefs[DataSyncIdKey]
+            } catch (e: Exception) {
+              null
+            },
+            try {
+              prefs[VisitorDataKey]
+            } catch (e: Exception) {
+              null
+            },
+          )
         }
         .distinctUntilChanged()
-        .collectLatest { cookie ->
+        .collectLatest { (cookie, rawDataSyncId, visitorData) ->
+          val wasInitial = isInitialEmission
+          isInitialEmission = false
           carouselAccountSongs.value = emptyList()
           accountPlaylists.value = null
           if (!cookie.isNullOrEmpty()) {
             YouTube.cookie = cookie
+            YouTube.useLoginForBrowse = context.dataStore.get(UseLoginForBrowse, true)
+            YouTube.dataSyncId =
+              rawDataSyncId?.let {
+                it.takeIf { !it.contains("||") }
+                  ?: it.takeIf { it.endsWith("||") }?.substringBefore("||")
+                  ?: it.substringAfter("||")
+              }
+            if (!visitorData.isNullOrEmpty()) YouTube.visitorData = visitorData
             YouTube.accountInfo()
               .onSuccess { info ->
                 accountName.value = info.name
                 accountImageUrl.value = info.thumbnailUrl
               }
-              .onFailure { reportException(it) }
-            loadAccountPlaylists()
+              .onFailure { err ->
+                reportException(err)
+                // If an incomplete cookie (without YouTube's LOGIN_INFO) fails auth, reset it so
+                // the user can sign in cleanly and get personalized YouTube Music recommendations.
+                if (err !is java.io.IOException && !cookie.contains("LOGIN_INFO")) {
+                  echo.music.iad1tya.App.forgetAccount(context)
+                  kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                    android.widget.Toast.makeText(
+                        context,
+                        "Please sign in again to load personal YouTube recommendations",
+                        android.widget.Toast.LENGTH_LONG,
+                      )
+                      .show()
+                  }
+                }
+              }
+            if (!wasInitial) {
+              // Auth session changed (logged in or switched account): reload personalized Home feed!
+              selectedChip.value = null
+              previousHomePage.value = null
+              load()
+            } else {
+              loadAccountPlaylists()
+            }
           } else {
             YouTube.cookie = null
+            YouTube.dataSyncId = null
             accountName.value = "Guest"
             accountImageUrl.value = null
+            if (!wasInitial) {
+              selectedChip.value = null
+              previousHomePage.value = null
+              load()
+            }
           }
         }
     }

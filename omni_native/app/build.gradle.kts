@@ -33,8 +33,8 @@ android {
     applicationId = "com.omniplayer.music"
     minSdk = 24
     targetSdk = 36
-    versionCode = 171
-    versionName = "1.4.10"
+    versionCode = 173
+    versionName = "1.4.12"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     vectorDrawables.useSupportLibrary = true

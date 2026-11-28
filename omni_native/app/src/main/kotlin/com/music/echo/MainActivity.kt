@@ -1232,8 +1232,10 @@ class MainActivity : ComponentActivity() {
         val (liquidGlassNavBarEnabled) =
           rememberPreference(LiquidGlassNavBarEnabledKey, defaultValue = true)
 
+        val perfTier = remember { echo.music.iad1tya.utils.DevicePerformance.getTier(this@MainActivity) }
         val glassEffectConfig =
           remember(
+            perfTier,
             liquidGlassGlobalEnabled,
             useFloatingNavBar,
             liquidGlassVibrancy,
@@ -1249,14 +1251,19 @@ class MainActivity : ComponentActivity() {
             liquidGlassMiniPlayerEnabled,
             liquidGlassNavBarEnabled,
           ) {
+            val allowLiveGlass =
+              liquidGlassGlobalEnabled &&
+                perfTier != echo.music.iad1tya.utils.PerformanceTier.LOW &&
+                echo.music.iad1tya.ui.component.isGlassSupported()
+            val isMidTier = perfTier == echo.music.iad1tya.utils.PerformanceTier.MID
             GlassEffectConfig(
-              globalEnabled = liquidGlassGlobalEnabled,
+              globalEnabled = allowLiveGlass,
               vibrancy = liquidGlassVibrancy,
-              blurRadius = liquidGlassBlurRadius,
-              lensHeight = liquidGlassLensHeight,
-              lensAmount = liquidGlassLensAmount,
-              chromaticAberration = liquidGlassChromaticAberration,
-              depthEffect = liquidGlassDepthEffect,
+              blurRadius = if (isMidTier) liquidGlassBlurRadius.coerceAtMost(6f) else liquidGlassBlurRadius,
+              lensHeight = if (isMidTier) 0f else liquidGlassLensHeight,
+              lensAmount = if (isMidTier) 0f else liquidGlassLensAmount,
+              chromaticAberration = if (isMidTier) false else liquidGlassChromaticAberration,
+              depthEffect = if (isMidTier) false else liquidGlassDepthEffect,
               surfaceTintColor =
                 if (liquidGlassSurfaceTintColorInt == 0) Color.Unspecified
                 else Color(liquidGlassSurfaceTintColorInt),
@@ -1810,7 +1817,8 @@ class MainActivity : ComponentActivity() {
                       } + fadeOut(tween(400, easing = EmphasizedEasing))
                   },
                   modifier =
-                    Modifier.layerBackdrop(appBackdrop)
+                    (if (glassEffectConfig.globalEnabled) Modifier.layerBackdrop(appBackdrop)
+                      else Modifier)
                       .nestedScroll(topAppBarScrollBehavior.nestedScrollConnection),
                 ) {
                   navigationBuilder(
